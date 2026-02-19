@@ -61,10 +61,26 @@
     .subtitle { color: var(--muted); margin: 0; }
 
     .controls {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 0.75rem;
-      align-items: end;
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .search-row {
+      width: min(760px, 100%);
+      display: flex;
+      justify-content: center;
+    }
+
+    .search-input-wrap {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      background: var(--glass-strong);
     }
 
     label {
@@ -76,7 +92,7 @@
       letter-spacing: 0.01em;
     }
 
-    input, select, button {
+    input, button {
       width: 100%;
       border-radius: 0.9rem;
       border: 1px solid rgba(255, 255, 255, 0.9);
@@ -87,7 +103,7 @@
       outline: none;
     }
 
-    input:focus, select:focus {
+    input:focus {
       border-color: rgba(10, 132, 255, 0.6);
       box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.16);
     }
@@ -101,14 +117,44 @@
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
     }
 
-    .btn-secondary {
-      margin-top: 0.55rem;
+    button:hover { transform: translateY(-1px); filter: brightness(1.03); }
+
+    .location-circle-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      margin: 0;
+      padding: 0;
+      font-size: 1.2rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       background: rgba(255, 255, 255, 0.66);
       color: #1f2a44;
       border: 1px solid rgba(255, 255, 255, 0.92);
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.09);
     }
 
-    button:hover { transform: translateY(-1px); filter: brightness(1.03); }
+    .location-input {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      padding: 0.65rem 0.6rem;
+      border-radius: 999px;
+    }
+
+    .location-input:focus {
+      box-shadow: none;
+    }
+
+    .search-btn {
+      width: auto;
+      min-width: 128px;
+      border-radius: 999px;
+      padding: 0.68rem 1rem;
+      white-space: nowrap;
+    }
+
 
     .meta {
       display: flex;
@@ -116,7 +162,7 @@
       flex-wrap: wrap;
       color: #334155;
       font-size: 0.9rem;
-      margin-top: 0.75rem;
+      margin-top: 0.4rem;
     }
 
     .meta span {
@@ -145,7 +191,19 @@
 
     .chart-panel {
       position: relative;
+      padding-top: 3.1rem;
       padding-bottom: 4.2rem;
+    }
+
+    .refresh-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      width: auto;
+      padding: 0.5rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.86rem;
+      z-index: 2;
     }
 
     .zoom-toggle {
@@ -183,7 +241,17 @@
       color: #46556f;
       font-size: 0.85rem;
       line-height: 1.45;
-    }  </style>
+    }
+
+    .integration-plan {
+      margin-top: 0.85rem;
+      padding-left: 1.1rem;
+    }
+
+    .integration-plan li + li {
+      margin-top: 0.35rem;
+    }
+  </style>
 </head>
 <body>
   <main class="container">
@@ -191,32 +259,23 @@
       <h1>🌤️ Wetter Dashboard (All-in-One HTML)</h1>
       <p class="subtitle">Vorhersage für Stunden und nächste Tage mit Open-Meteo (inkl. Standortfreigabe).</p>
 
-      <div class="controls" style="margin-top: 1rem;">
-        <div>
-          <label for="location">Ort (Stadt / PLZ / Land)</label>
-          <input id="location" type="text" placeholder="z.B. Berlin" value="Berlin" />
-        </div>
-
-        <div>
-          <label for="days">Tage</label>
-          <select id="days">
-            <option value="3">3</option>
-            <option value="5" selected>5</option>
-            <option value="7">7</option>
-          </select>
-        </div>
-
-        <div>
-          <button id="loadBtn">Wetter laden</button>
-          <button id="locateBtn" type="button" class="btn-secondary">📍 Meinen Standort nutzen</button>
+      <div class="controls">
+        <div class="search-row">
+          <div>
+            <label for="location">Ort (Stadt / PLZ / Land)</label>
+            <div class="search-input-wrap">
+              <button id="locateBtn" type="button" class="location-circle-btn" title="Meinen Standort nutzen" aria-label="Meinen Standort nutzen">📍</button>
+              <input id="location" class="location-input" type="text" placeholder="z.B. Berlin" value="Berlin" />
+              <button id="loadBtn" type="button" class="search-btn">Suchanfrage</button>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div class="meta" id="meta"></div>
       <div id="status" class="status"></div>
     </section>
 
     <section class="panel chart-panel">
+      <button id="refreshBtn" type="button" class="refresh-btn">Aktualisieren</button>
       <h3 id="chartTitle">Temperaturverlauf</h3>
       <canvas id="weatherChart"></canvas>
       <div class="zoom-toggle" id="zoomToggle" role="group" aria-label="Ansicht wechseln">
@@ -226,17 +285,25 @@
     </section>
 
     <section class="panel footnote">
+      <div class="meta" id="meta"></div>
+
       <strong>Hinweise:</strong>
       <ul>
         <li>Verwendet ausschließlich die Open-Meteo API (kein API-Key nötig).</li>
-        <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln. Mit „📍 Meinen Standort nutzen“ fragt die App deine Position ab.</li>
+        <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln. Mit dem runden 📍-Button fragt die App deine Position ab.</li>
       </ul>
+
+      <strong>Plan: Wetter + Niederschlag integrieren</strong>
+      <ol class="integration-plan">
+        <li>Open-Meteo um <code>hourly=precipitation,precipitation_probability</code> erweitern und die Werte zusammen mit der Temperatur laden.</li>
+        <li>Im Chart eine zweite Y-Achse (mm) für Niederschlag ergänzen und die Regenwahrscheinlichkeit als Linie darstellen.</li>
+        <li>In der Tagesansicht Zeitfenster mit Regen (z. B. &gt; 0.2 mm/h) farblich markieren, damit man trockene Zeiträume sofort sieht.</li>
+      </ol>
     </section>
   </main>
 
   <script>
     const locationInput = document.getElementById('location');
-    const daysSelect = document.getElementById('days');
     const loadBtn = document.getElementById('loadBtn');
     const locateBtn = document.getElementById('locateBtn');
     const statusBox = document.getElementById('status');
@@ -244,14 +311,29 @@
     const chartTitle = document.getElementById('chartTitle');
     const dayBtn = document.getElementById('dayBtn');
     const weekBtn = document.getElementById('weekBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
 
     let weatherChart;
     let lastData = null;
     let zoomMode = 'day';
+    let statusTimeout;
+    const forecastDays = 7;
 
     function setStatus(message, type = 'info') {
+      if (statusTimeout) {
+        clearTimeout(statusTimeout);
+        statusTimeout = null;
+      }
+
       statusBox.className = `status ${type}`;
       statusBox.textContent = message;
+
+      if (type === 'ok') {
+        statusTimeout = setTimeout(() => {
+          statusBox.className = 'status';
+          statusBox.textContent = '';
+        }, 3000);
+      }
     }
 
     function getYAxisConfig(datasets) {
@@ -550,6 +632,37 @@
       return json.display_name ? String(json.display_name).split(',').slice(0,2).join(',').trim() : `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
     }
 
+
+    async function resolveApproxLocationByIP() {
+      const res = await fetch('https://ipapi.co/json/');
+      if (!res.ok) throw new Error('IP-Standort konnte nicht geladen werden.');
+
+      const json = await res.json();
+      const lat = Number(json.latitude);
+      const lon = Number(json.longitude);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        throw new Error('IP-Standort ist unvollständig.');
+      }
+
+      const city = json.city || json.region || 'Unbekannter Ort';
+      const country = json.country_name || json.country || '';
+      const name = country ? `${city}, ${country}` : city;
+
+      return { lat, lon, name };
+    }
+
+    async function initializeWeather() {
+      try {
+        setStatus('Ermittle ungefähren Standort über öffentliche IP…', 'info');
+        const ipLocation = await resolveApproxLocationByIP();
+        locationInput.value = ipLocation.name;
+        await loadWeather({ fixedCoords: ipLocation });
+      } catch (_) {
+        await loadWeather();
+      }
+    }
+
     async function useCurrentLocation() {
       if (!navigator.geolocation) {
         setStatus('Geolocation wird von diesem Browser nicht unterstützt.', 'error');
@@ -587,7 +700,6 @@
 
     async function loadWeather(options = {}) {
       const location = locationInput.value.trim();
-      const days = Number(daysSelect.value);
       const fixedCoords = options.fixedCoords || null;
 
       if (!location) {
@@ -599,7 +711,7 @@
       loadBtn.disabled = true;
 
       try {
-        const data = await fetchFromOpenMeteo(location, days, fixedCoords);
+        const data = await fetchFromOpenMeteo(location, forecastDays, fixedCoords);
 
         lastData = data;
         renderChart(data);
@@ -636,8 +748,12 @@
     });
 
     loadBtn.addEventListener('click', () => loadWeather());
+    refreshBtn.addEventListener('click', () => loadWeather());
     locateBtn.addEventListener('click', useCurrentLocation);
-    window.addEventListener('DOMContentLoaded', loadWeather);
+    locationInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') loadWeather();
+    });
+    window.addEventListener('DOMContentLoaded', initializeWeather);
   </script>
 </body>
 </html>
