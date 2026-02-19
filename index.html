@@ -304,17 +304,47 @@
     }
 
     async function geocodeWithOpenMeteo(query) {
-      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=de&format=json`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Geocoding fehlgeschlagen.');
-      const json = await res.json();
-      if (!json.results || !json.results.length) throw new Error('Ort nicht gefunden.');
-      const place = json.results[0];
-      return {
-        name: `${place.name}${place.country ? ', ' + place.country : ''}`,
-        lat: place.latitude,
-        lon: place.longitude
-      };
+      const normalized = query.trim().replace(/\s+/g, ' ');
+      const candidates = [normalized];
+
+      const zipCityMatch = normalized.match(/^(\d{4,6})[\s,;-]+(.+)$/);
+      if (zipCityMatch && zipCityMatch[2]) {
+        candidates.push(zipCityMatch[2].trim());
+      }
+
+      const alphaParts = normalized.split(/[,;-]/).map((p) => p.trim()).filter(Boolean);
+      alphaParts.forEach((part) => {
+        if (!/^\d{4,6}$/.test(part) && !candidates.includes(part)) {
+          candidates.push(part);
+        }
+      });
+
+      for (const candidate of candidates) {
+        const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(candidate)}&count=10&language=de&format=json`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+
+        const json = await res.json();
+        if (!json.results || !json.results.length) continue;
+
+        let place = json.results[0];
+
+        if (zipCityMatch && zipCityMatch[2]) {
+          const cityPart = zipCityMatch[2].toLowerCase();
+          const byName = json.results.find((item) =>
+            String(item.name || '').toLowerCase().includes(cityPart)
+          );
+          if (byName) place = byName;
+        }
+
+        return {
+          name: `${place.name}${place.country ? ', ' + place.country : ''}`,
+          lat: place.latitude,
+          lon: place.longitude
+        };
+      }
+
+      throw new Error('Ort nicht gefunden. Tipp: Ort ohne PLZ versuchen (z.B. Kalletal).');
     }
 
     async function fetchFromOpenMeteo(location, days) {
