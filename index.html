@@ -160,20 +160,12 @@
   <main class="container">
     <section class="panel">
       <h1>🌤️ Wetter Dashboard (All-in-One HTML)</h1>
-      <p class="subtitle">Vorhersage für Stunden und nächste Tage mit wechselbaren API-Quellen.</p>
+      <p class="subtitle">Vorhersage für Stunden und nächste Tage mit Open-Meteo (inkl. Standortfreigabe).</p>
 
       <div class="controls" style="margin-top: 1rem;">
         <div>
           <label for="location">Ort (Stadt / PLZ / Land)</label>
           <input id="location" type="text" placeholder="z.B. Berlin" value="Berlin" />
-        </div>
-
-        <div>
-          <label for="source">Datenquelle</label>
-          <select id="source">
-            <option value="open-meteo">Open-Meteo (ohne API-Key)</option>
-            <option value="weatherapi">WeatherAPI (API-Key nötig)</option>
-          </select>
         </div>
 
         <div>
@@ -183,11 +175,6 @@
             <option value="5" selected>5</option>
             <option value="7">7</option>
           </select>
-        </div>
-
-        <div>
-          <label for="apiKey">API-Key (nur falls nötig)</label>
-          <input id="apiKey" type="password" placeholder="WeatherAPI Key" />
         </div>
 
         <div>
@@ -212,8 +199,7 @@
     <section class="panel footnote">
       <strong>Hinweise:</strong>
       <ul>
-        <li>Open-Meteo funktioniert direkt ohne Schlüssel.</li>
-        <li>WeatherAPI benötigt einen eigenen API-Key.</li>
+        <li>Verwendet ausschließlich die Open-Meteo API (kein API-Key nötig).</li>
         <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln. Mit „📍 Meinen Standort nutzen“ fragt die App deine Position ab.</li>
       </ul>
     </section>
@@ -221,9 +207,7 @@
 
   <script>
     const locationInput = document.getElementById('location');
-    const sourceSelect = document.getElementById('source');
     const daysSelect = document.getElementById('days');
-    const apiKeyInput = document.getElementById('apiKey');
     const loadBtn = document.getElementById('loadBtn');
     const locateBtn = document.getElementById('locateBtn');
     const statusBox = document.getElementById('status');
@@ -239,6 +223,19 @@
     function setStatus(message, type = 'info') {
       statusBox.className = `status ${type}`;
       statusBox.textContent = message;
+    }
+
+    function getYAxisConfig(datasets) {
+      const values = datasets.flatMap((ds) => ds.data).filter((v) => Number.isFinite(v));
+      const dataMin = Math.min(...values);
+      const dataMax = Math.max(...values);
+
+      let min = -5;
+      let max = 15;
+      if (dataMin < min) min = Math.floor(dataMin - 1);
+      if (dataMax > max) max = Math.ceil(dataMax + 1);
+
+      return { min, max };
     }
 
     function toHourLabel(isoString) {
@@ -384,6 +381,8 @@
 
       chartTitle.textContent = title;
 
+      const yScale = getYAxisConfig(datasets);
+
       weatherChart = new Chart(document.getElementById('weatherChart'), {
         type: 'line',
         data: {
@@ -413,7 +412,7 @@
           },
           scales: {
             x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
-            y: { ticks: { color: '#94a3b8' } }
+            y: { min: yScale.min, max: yScale.max, ticks: { color: '#94a3b8' } }
           }
         }
       });
@@ -557,36 +556,9 @@
       });
     }
 
-    async function fetchFromWeatherApi(location, days, apiKey) {
-      if (!apiKey) throw new Error('Für WeatherAPI wird ein API-Key benötigt.');
-      const url = `https://api.weatherapi.com/v1/forecast.json?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(location)}&days=${days}&aqi=no&alerts=no&lang=de`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('WeatherAPI Anfrage fehlgeschlagen (Key/Limit prüfen).');
-      const json = await res.json();
-
-      const hourly = [];
-      const hourlyTemps = [];
-      json.forecast.forecastday.forEach(day => {
-        day.hour.forEach(h => {
-          hourly.push(h.time);
-          hourlyTemps.push(h.temp_c);
-        });
-      });
-
-      return {
-        source: 'WeatherAPI',
-        place: `${json.location.name}, ${json.location.country}`,
-        timezone: json.location.tz_id,
-        updated: new Date(json.current.last_updated).toLocaleString('de-DE'),
-        hourly: { times: hourly, temps: hourlyTemps }
-      };
-    }
-
     async function loadWeather(options = {}) {
       const location = locationInput.value.trim();
-      const source = sourceSelect.value;
       const days = Number(daysSelect.value);
-      const apiKey = apiKeyInput.value.trim();
       const fixedCoords = options.fixedCoords || null;
 
       if (!location) {
@@ -598,9 +570,7 @@
       loadBtn.disabled = true;
 
       try {
-        const data = source === 'open-meteo'
-          ? await fetchFromOpenMeteo(location, days, fixedCoords)
-          : await fetchFromWeatherApi(fixedCoords ? `${fixedCoords.lat},${fixedCoords.lon}` : location, days, apiKey);
+        const data = await fetchFromOpenMeteo(location, days, fixedCoords);
 
         lastData = data;
         renderChart(data);
