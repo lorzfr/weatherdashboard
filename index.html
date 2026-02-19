@@ -344,11 +344,36 @@
         };
       }
 
-      throw new Error('Ort nicht gefunden. Tipp: Ort ohne PLZ versuchen (z.B. Kalletal).');
+      throw new Error('Ort nicht gefunden.');
+    }
+
+    async function geocodeWithNominatim(query) {
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=de&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) throw new Error('Fallback-Geocoding fehlgeschlagen.');
+      const json = await res.json();
+      if (!Array.isArray(json) || !json.length) throw new Error('Ort nicht gefunden.');
+
+      const place = json[0];
+      return {
+        name: String(place.display_name || query).split(',').slice(0, 2).join(',').trim(),
+        lat: Number(place.lat),
+        lon: Number(place.lon)
+      };
+    }
+
+    async function resolveLocation(query) {
+      try {
+        return await geocodeWithOpenMeteo(query);
+      } catch (_) {
+        return await geocodeWithNominatim(query);
+      }
     }
 
     async function fetchFromOpenMeteo(location, days) {
-      const geo = await geocodeWithOpenMeteo(location);
+      const geo = await resolveLocation(location);
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&forecast_days=${days}&timezone=auto`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Open-Meteo Anfrage fehlgeschlagen.');
@@ -422,6 +447,8 @@
         setStatus('Daten erfolgreich geladen.', 'ok');
       } catch (err) {
         console.error(err);
+        destroyChart();
+        metaBox.innerHTML = '';
         setStatus(err.message || 'Unbekannter Fehler beim Laden der Daten.', 'error');
       } finally {
         loadBtn.disabled = false;
