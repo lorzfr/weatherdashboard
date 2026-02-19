@@ -222,7 +222,7 @@
     const locationInput = document.getElementById('location');
     const sourceSelect = document.getElementById('source');
     const daysSelect = document.getElementById('days');
-        const apiKeyInput = document.getElementById('apiKey');
+    const apiKeyInput = document.getElementById('apiKey');
     const loadBtn = document.getElementById('loadBtn');
     const statusBox = document.getElementById('status');
     const metaBox = document.getElementById('meta');
@@ -253,6 +253,24 @@
       if (weatherChart) weatherChart.destroy();
     }
 
+    function buildDaySeries(hourlyTemps) {
+      const min = [];
+      const avg = [];
+      const max = [];
+
+      for (let i = 0; i < hourlyTemps.length; i++) {
+        const from = Math.max(0, i - 1);
+        const to = Math.min(hourlyTemps.length - 1, i + 1);
+        const windowValues = hourlyTemps.slice(from, to + 1);
+
+        min.push(Math.min(...windowValues));
+        max.push(Math.max(...windowValues));
+        avg.push(windowValues.reduce((sum, v) => sum + v, 0) / windowValues.length);
+      }
+
+      return { min, avg, max };
+    }
+
     function buildWeekSeries(hourlyTimes, hourlyTemps) {
       const map = new Map();
       hourlyTimes.forEach((t, i) => {
@@ -280,21 +298,52 @@
       let title;
 
       if (zoomMode === 'day') {
+        const dayTemps = data.hourly.temps.slice(0, 24);
+        const daySeries = buildDaySeries(dayTemps);
         labels = data.hourly.times.slice(0, 24).map(toHourLabel);
-        title = 'Temperatur – Tages-Detail (24h)';
-        datasets = [{
-          label: 'Temperatur (°C)',
-          data: data.hourly.temps.slice(0, 24),
-          borderColor: '#38bdf8',
-          backgroundColor: 'rgba(56, 189, 248, 0.2)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 2,
-          pointHoverRadius: 7,
-          pointHoverBackgroundColor: '#ffffff',
-          pointHoverBorderColor: '#38bdf8',
-          pointHoverBorderWidth: 2,
-        }];
+        title = 'Temperatur – Tages-Detail (Min / Avg / Max)';
+        datasets = [
+          {
+            label: 'Min (°C)',
+            data: daySeries.min,
+            borderColor: '#60a5fa',
+            backgroundColor: 'rgba(96, 165, 250, 0.07)',
+            fill: false,
+            tension: 0.3,
+            pointRadius: 2,
+            pointHoverRadius: 7,
+            pointHoverBackgroundColor: '#ffffff',
+            pointHoverBorderColor: '#60a5fa',
+            pointHoverBorderWidth: 2,
+          },
+          {
+            label: 'Avg (°C)',
+            data: daySeries.avg,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.2)',
+            fill: false,
+            tension: 0.3,
+            borderWidth: 3,
+            pointRadius: 2,
+            pointHoverRadius: 7,
+            pointHoverBackgroundColor: '#ffffff',
+            pointHoverBorderColor: '#38bdf8',
+            pointHoverBorderWidth: 2,
+          },
+          {
+            label: 'Max (°C)',
+            data: daySeries.max,
+            borderColor: '#f472b6',
+            backgroundColor: 'rgba(244, 114, 182, 0.07)',
+            fill: false,
+            tension: 0.3,
+            pointRadius: 2,
+            pointHoverRadius: 7,
+            pointHoverBackgroundColor: '#ffffff',
+            pointHoverBorderColor: '#f472b6',
+            pointHoverBorderWidth: 2,
+          }
+        ];
       } else {
         const weekSeries = buildWeekSeries(data.hourly.times, data.hourly.temps);
         labels = weekSeries.labels;
@@ -352,7 +401,10 @@
             tooltip: {
               displayColors: false,
               callbacks: {
-                title: (items) => items?.[0]?.label ? `Zeit: ${items[0].label}` : '',
+                title: (items) => {
+                  if (!items?.[0]?.label) return '';
+                  return zoomMode === 'week' ? `Tag: ${items[0].label}` : `Zeit: ${items[0].label}`;
+                },
                 label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(1)} °C`
               }
             }
