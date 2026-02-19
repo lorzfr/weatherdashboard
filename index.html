@@ -16,7 +16,6 @@
       --accent: #38bdf8;
       --accent-2: #a78bfa;
       --ok: #22c55e;
-      --warn: #f59e0b;
       --err: #ef4444;
     }
 
@@ -110,27 +109,15 @@
     .status.error { display: block; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.4); }
     .status.ok { display: block; background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.4); }
 
-    .charts {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-
     canvas {
       width: 100% !important;
-      height: 360px !important;
+      height: 420px !important;
     }
 
     .footnote {
       color: var(--muted);
       font-size: 0.85rem;
       line-height: 1.45;
-    }
-
-    @media (min-width: 980px) {
-      .charts {
-        grid-template-columns: 1fr 1fr;
-      }
     }
   </style>
 </head>
@@ -164,6 +151,14 @@
         </div>
 
         <div>
+          <label for="zoomMode">Zoom-Ansicht</label>
+          <select id="zoomMode">
+            <option value="day" selected>Tages-Detail (24h)</option>
+            <option value="week">Woche (7 Tage)</option>
+          </select>
+        </div>
+
+        <div>
           <label for="apiKey">API-Key (nur falls nötig)</label>
           <input id="apiKey" type="password" placeholder="WeatherAPI Key" />
         </div>
@@ -177,16 +172,9 @@
       <div id="status" class="status"></div>
     </section>
 
-    <section class="charts">
-      <article class="panel">
-        <h3>Stündliche Temperatur</h3>
-        <canvas id="hourlyChart"></canvas>
-      </article>
-
-      <article class="panel">
-        <h3>Tägliche Min/Max Temperatur</h3>
-        <canvas id="dailyChart"></canvas>
-      </article>
+    <section class="panel">
+      <h3 id="chartTitle">Temperaturverlauf</h3>
+      <canvas id="weatherChart"></canvas>
     </section>
 
     <section class="panel footnote">
@@ -194,7 +182,7 @@
       <ul>
         <li>Open-Meteo funktioniert direkt ohne Schlüssel.</li>
         <li>WeatherAPI benötigt einen eigenen API-Key.</li>
-        <li>Alle Logik (HTML, CSS, JS) liegt in dieser einen Datei.</li>
+        <li>Zoom-Ansicht: 24h-Detail oder Wochenansicht ohne Min/Max-Balken.</li>
       </ul>
     </section>
   </main>
@@ -203,49 +191,86 @@
     const locationInput = document.getElementById('location');
     const sourceSelect = document.getElementById('source');
     const daysSelect = document.getElementById('days');
+    const zoomModeSelect = document.getElementById('zoomMode');
     const apiKeyInput = document.getElementById('apiKey');
     const loadBtn = document.getElementById('loadBtn');
     const statusBox = document.getElementById('status');
     const metaBox = document.getElementById('meta');
+    const chartTitle = document.getElementById('chartTitle');
 
-    let hourlyChart;
-    let dailyChart;
+    let weatherChart;
+    let lastData = null;
 
     function setStatus(message, type = 'info') {
       statusBox.className = `status ${type}`;
       statusBox.textContent = message;
     }
 
-    function clearStatus() {
-      statusBox.className = 'status';
-      statusBox.textContent = '';
-    }
-
-    function toLocalHourLabel(isoString) {
+    function toHourLabel(isoString) {
       const d = new Date(isoString);
       return d.toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
     }
 
-    function destroyCharts() {
-      if (hourlyChart) hourlyChart.destroy();
-      if (dailyChart) dailyChart.destroy();
+    function toDayLabel(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
     }
 
-    function renderCharts(data) {
-      destroyCharts();
+    function destroyChart() {
+      if (weatherChart) weatherChart.destroy();
+    }
 
-      hourlyChart = new Chart(document.getElementById('hourlyChart'), {
+    function buildWeekSeries(hourlyTimes, hourlyTemps) {
+      const map = new Map();
+      hourlyTimes.forEach((t, i) => {
+        const day = new Date(t).toISOString().slice(0, 10);
+        if (!map.has(day)) map.set(day, []);
+        map.get(day).push(hourlyTemps[i]);
+      });
+
+      const days = Array.from(map.keys()).slice(0, 7);
+      return {
+        labels: days.map(toDayLabel),
+        values: days.map((day) => {
+          const arr = map.get(day);
+          return arr.reduce((sum, v) => sum + v, 0) / arr.length;
+        })
+      };
+    }
+
+    function renderChart(data) {
+      destroyChart();
+      const zoomMode = zoomModeSelect.value;
+
+      let labels;
+      let values;
+      let title;
+
+      if (zoomMode === 'day') {
+        labels = data.hourly.times.slice(0, 24).map(toHourLabel);
+        values = data.hourly.temps.slice(0, 24);
+        title = 'Temperatur – Tages-Detail (24h)';
+      } else {
+        const weekSeries = buildWeekSeries(data.hourly.times, data.hourly.temps);
+        labels = weekSeries.labels;
+        values = weekSeries.values;
+        title = 'Temperatur – Woche (Tagesmittel)';
+      }
+
+      chartTitle.textContent = title;
+
+      weatherChart = new Chart(document.getElementById('weatherChart'), {
         type: 'line',
         data: {
-          labels: data.hourly.times.map(toLocalHourLabel),
+          labels,
           datasets: [{
             label: 'Temperatur (°C)',
-            data: data.hourly.temps,
+            data: values,
             borderColor: '#38bdf8',
             backgroundColor: 'rgba(56, 189, 248, 0.2)',
             fill: true,
             tension: 0.3,
-            pointRadius: 0,
+            pointRadius: zoomMode === 'day' ? 0 : 3,
           }]
         },
         options: {
@@ -254,34 +279,6 @@
           plugins: { legend: { labels: { color: '#e2e8f0' } } },
           scales: {
             x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
-            y: { ticks: { color: '#94a3b8' } }
-          }
-        }
-      });
-
-      dailyChart = new Chart(document.getElementById('dailyChart'), {
-        type: 'bar',
-        data: {
-          labels: data.daily.days,
-          datasets: [
-            {
-              label: 'Min (°C)',
-              data: data.daily.min,
-              backgroundColor: 'rgba(59,130,246,0.6)'
-            },
-            {
-              label: 'Max (°C)',
-              data: data.daily.max,
-              backgroundColor: 'rgba(168,85,247,0.65)'
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: '#e2e8f0' } } },
-          scales: {
-            x: { ticks: { color: '#94a3b8' } },
             y: { ticks: { color: '#94a3b8' } }
           }
         }
@@ -304,7 +301,7 @@
 
     async function fetchFromOpenMeteo(location, days) {
       const geo = await geocodeWithOpenMeteo(location);
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min&forecast_days=${days}&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&forecast_days=${days}&timezone=auto`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Open-Meteo Anfrage fehlgeschlagen.');
       const json = await res.json();
@@ -317,11 +314,6 @@
         hourly: {
           times: json.hourly.time,
           temps: json.hourly.temperature_2m
-        },
-        daily: {
-          days: json.daily.time.map(d => new Date(d).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })),
-          min: json.daily.temperature_2m_min,
-          max: json.daily.temperature_2m_max
         }
       };
     }
@@ -347,12 +339,7 @@
         place: `${json.location.name}, ${json.location.country}`,
         timezone: json.location.tz_id,
         updated: new Date(json.current.last_updated).toLocaleString('de-DE'),
-        hourly: { times: hourly, temps: hourlyTemps },
-        daily: {
-          days: json.forecast.forecastday.map(d => new Date(d.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })),
-          min: json.forecast.forecastday.map(d => d.day.mintemp_c),
-          max: json.forecast.forecastday.map(d => d.day.maxtemp_c)
-        }
+        hourly: { times: hourly, temps: hourlyTemps }
       };
     }
 
@@ -371,14 +358,12 @@
       loadBtn.disabled = true;
 
       try {
-        let data;
-        if (source === 'open-meteo') {
-          data = await fetchFromOpenMeteo(location, days);
-        } else {
-          data = await fetchFromWeatherApi(location, days, apiKey);
-        }
+        const data = source === 'open-meteo'
+          ? await fetchFromOpenMeteo(location, days)
+          : await fetchFromWeatherApi(location, days, apiKey);
 
-        renderCharts(data);
+        lastData = data;
+        renderChart(data);
 
         metaBox.innerHTML = `
           <span><strong>Quelle:</strong> ${data.source}</span>
@@ -394,6 +379,10 @@
         loadBtn.disabled = false;
       }
     }
+
+    zoomModeSelect.addEventListener('change', () => {
+      if (lastData) renderChart(lastData);
+    });
 
     loadBtn.addEventListener('click', loadWeather);
     window.addEventListener('DOMContentLoaded', loadWeather);
