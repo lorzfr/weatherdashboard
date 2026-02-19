@@ -192,6 +192,7 @@
 
         <div>
           <button id="loadBtn">Wetter laden</button>
+          <button id="locateBtn" type="button" style="margin-top:0.55rem;background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.5);">📍 Meinen Standort nutzen</button>
         </div>
       </div>
 
@@ -213,7 +214,7 @@
       <ul>
         <li>Open-Meteo funktioniert direkt ohne Schlüssel.</li>
         <li>WeatherAPI benötigt einen eigenen API-Key.</li>
-        <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln.</li>
+        <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln. Mit „📍 Meinen Standort nutzen“ fragt die App deine Position ab.</li>
       </ul>
     </section>
   </main>
@@ -224,6 +225,7 @@
     const daysSelect = document.getElementById('days');
     const apiKeyInput = document.getElementById('apiKey');
     const loadBtn = document.getElementById('loadBtn');
+    const locateBtn = document.getElementById('locateBtn');
     const statusBox = document.getElementById('status');
     const metaBox = document.getElementById('meta');
     const chartTitle = document.getElementById('chartTitle');
@@ -486,8 +488,8 @@
       }
     }
 
-    async function fetchFromOpenMeteo(location, days) {
-      const geo = await resolveLocation(location);
+    async function fetchFromOpenMeteo(location, days, fixedCoords = null) {
+      const geo = fixedCoords || await resolveLocation(location);
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&forecast_days=${days}&timezone=auto`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Open-Meteo Anfrage fehlgeschlagen.');
@@ -503,6 +505,56 @@
           temps: json.hourly.temperature_2m
         }
       };
+    }
+
+    async function reverseGeocode(lat, lon) {
+      const url = `https://geocode.maps.co/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&accept-language=de`;
+      const res = await fetch(url);
+      if (!res.ok) return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      const json = await res.json();
+      if (!json || !json.address) return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+      const a = json.address;
+      const city = a.city || a.town || a.village || a.municipality || a.county;
+      const country = a.country;
+      if (city && country) return `${city}, ${country}`;
+      if (city) return city;
+      return json.display_name ? String(json.display_name).split(',').slice(0,2).join(',').trim() : `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    }
+
+    async function useCurrentLocation() {
+      if (!navigator.geolocation) {
+        setStatus('Geolocation wird von diesem Browser nicht unterstützt.', 'error');
+        return;
+      }
+
+      setStatus('Standortfreigabe wird angefragt…', 'info');
+      locateBtn.disabled = true;
+
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        try {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          const placeName = await reverseGeocode(lat, lon);
+          locationInput.value = placeName;
+          await loadWeather({ fixedCoords: { lat, lon, name: placeName } });
+        } catch (err) {
+          console.error(err);
+          setStatus('Standort wurde erkannt, aber Laden der Wetterdaten ist fehlgeschlagen.', 'error');
+        } finally {
+          locateBtn.disabled = false;
+        }
+      }, (error) => {
+        const message = error.code === 1
+          ? 'Standortfreigabe wurde abgelehnt.'
+          : 'Standort konnte nicht ermittelt werden.';
+        setStatus(message, 'error');
+        locateBtn.disabled = false;
+      }, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
+      });
     }
 
     async function fetchFromWeatherApi(location, days, apiKey) {
@@ -530,11 +582,12 @@
       };
     }
 
-    async function loadWeather() {
+    async function loadWeather(options = {}) {
       const location = locationInput.value.trim();
       const source = sourceSelect.value;
       const days = Number(daysSelect.value);
       const apiKey = apiKeyInput.value.trim();
+      const fixedCoords = options.fixedCoords || null;
 
       if (!location) {
         setStatus('Bitte einen Ort eingeben.', 'error');
@@ -546,8 +599,8 @@
 
       try {
         const data = source === 'open-meteo'
-          ? await fetchFromOpenMeteo(location, days)
-          : await fetchFromWeatherApi(location, days, apiKey);
+          ? await fetchFromOpenMeteo(location, days, fixedCoords)
+          : await fetchFromWeatherApi(fixedCoords ? `${fixedCoords.lat},${fixedCoords.lon}` : location, days, apiKey);
 
         lastData = data;
         renderChart(data);
@@ -583,7 +636,8 @@
       if (lastData) renderChart(lastData);
     });
 
-    loadBtn.addEventListener('click', loadWeather);
+    loadBtn.addEventListener('click', () => loadWeather());
+    locateBtn.addEventListener('click', useCurrentLocation);
     window.addEventListener('DOMContentLoaded', loadWeather);
   </script>
 </body>
