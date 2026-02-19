@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wetter Dashboard – All-in-One</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-1: #0f172a;
+      --bg-2: #1e293b;
+      --card: rgba(15, 23, 42, 0.75);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #a78bfa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top, #1d4ed8 0%, var(--bg-1) 35%), linear-gradient(140deg, var(--bg-1), var(--bg-2));
+      min-height: 100vh;
+    }
+    .container { max-width: 1200px; margin: 2rem auto; padding: 1rem; display: grid; gap: 1rem; }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1rem;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 28px rgba(0,0,0,.2);
+    }
+    h1 { margin: 0 0 0.25rem 0; font-size: clamp(1.4rem, 2vw, 2rem); }
+    .subtitle { color: var(--muted); margin: 0; }
+    .controls { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:.75rem; align-items:end; }
+    label { display:block; font-size:.86rem; margin-bottom:.4rem; color:var(--muted); }
+    input, select, button {
+      width:100%; border-radius:.7rem; border:1px solid var(--border);
+      padding:.7rem .8rem; background:rgba(15,23,42,.75); color:var(--text); font-size:.95rem;
+    }
+    button { cursor:pointer; background:linear-gradient(120deg,var(--accent),var(--accent-2)); color:#fff; border:none; font-weight:600; }
+    .meta { display:flex; gap:1rem; flex-wrap:wrap; color:var(--muted); font-size:.92rem; margin-top:.75rem; }
+    .status { margin-top:.6rem; font-size:.9rem; padding:.55rem .7rem; border-radius:.6rem; display:none; }
+    .status.info { display:block; background:rgba(56,189,248,.15); border:1px solid rgba(56,189,248,.4); }
+    .status.error { display:block; background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.4); }
+    .status.ok { display:block; background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.4); }
+    .zoom-switch { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.8rem; }
+    .zoom-btn { width:auto; background:rgba(56,189,248,.15); border:1px solid rgba(56,189,248,.35); }
+    .zoom-btn.active { background:linear-gradient(120deg,var(--accent),var(--accent-2)); border:none; }
+    canvas { width:100% !important; height:420px !important; }
+    .footnote { color: var(--muted); font-size: .85rem; line-height:1.45; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="panel">
+      <h1>🌤️ Wetter Dashboard (All-in-One HTML)</h1>
+      <p class="subtitle">Stunden-Detail oder Wochenansicht per Zoom-Schalter.</p>
+      <div class="controls" style="margin-top:1rem;">
+        <div>
+          <label for="location">Ort (Stadt / PLZ / Land)</label>
+          <input id="location" type="text" placeholder="z.B. Berlin" value="Berlin" />
+        </div>
+        <div>
+          <label for="source">Datenquelle</label>
+          <select id="source">
+            <option value="open-meteo">Open-Meteo (ohne API-Key)</option>
+            <option value="weatherapi">WeatherAPI (API-Key nötig)</option>
+          </select>
+        </div>
+        <div>
+          <label for="days">Tage</label>
+          <select id="days">
+            <option value="3">3</option>
+            <option value="5">5</option>
+            <option value="7" selected>7</option>
+          </select>
+        </div>
+        <div>
+          <label for="apiKey">API-Key (nur falls nötig)</label>
+          <input id="apiKey" type="password" placeholder="WeatherAPI Key" />
+        </div>
+        <div><button id="loadBtn">Wetter laden</button></div>
+      </div>
+      <div class="zoom-switch">
+        <button id="zoomDay" class="zoom-btn active">🔎 Tages-Detail (24h)</button>
+        <button id="zoomWeek" class="zoom-btn">🗓️ Woche</button>
+      </div>
+      <div class="meta" id="meta"></div>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section class="panel">
+      <h3 id="chartTitle">Temperaturverlauf</h3>
+      <canvas id="weatherChart"></canvas>
+    </section>
+
+    <section class="panel footnote">
+      <ul>
+        <li>Min/Max-Diagramm wurde entfernt.</li>
+        <li>Zoom-Schalter wechselt zwischen stündlicher 24h-Ansicht und Wochenansicht.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    const locationInput = document.getElementById('location');
+    const sourceSelect = document.getElementById('source');
+    const daysSelect = document.getElementById('days');
+    const apiKeyInput = document.getElementById('apiKey');
+    const loadBtn = document.getElementById('loadBtn');
+    const statusBox = document.getElementById('status');
+    const metaBox = document.getElementById('meta');
+    const chartTitle = document.getElementById('chartTitle');
+    const zoomDayBtn = document.getElementById('zoomDay');
+    const zoomWeekBtn = document.getElementById('zoomWeek');
+
+    let weatherChart;
+    let currentData = null;
+    let currentZoom = 'day';
+
+    function setStatus(message, type = 'info') {
+      statusBox.className = `status ${type}`;
+      statusBox.textContent = message;
+    }
+
+    function toHourLabel(isoString) {
+      return new Date(isoString).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function toDayLabel(isoDate) {
+      return new Date(isoDate).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    }
+
+    function setZoom(mode) {
+      currentZoom = mode;
+      zoomDayBtn.classList.toggle('active', mode === 'day');
+      zoomWeekBtn.classList.toggle('active', mode === 'week');
+      if (currentData) renderChart(currentData);
+    }
+
+    function renderChart(data) {
+      if (weatherChart) weatherChart.destroy();
+
+      let labels = [];
+      let temps = [];
+      if (currentZoom === 'day') {
+        labels = data.hourly.times.slice(0, 24).map(toHourLabel);
+        temps = data.hourly.temps.slice(0, 24);
+        chartTitle.textContent = 'Temperaturverlauf – Tages-Detail (24h)';
+      } else {
+        labels = data.daily.days.map(toDayLabel);
+        temps = data.daily.avg;
+        chartTitle.textContent = 'Temperaturverlauf – Woche';
+      }
+
+      weatherChart = new Chart(document.getElementById('weatherChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Temperatur (°C)',
+            data: temps,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.2)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 2,
+            pointHoverRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#e2e8f0' } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+            y: { ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    async function geocodeWithOpenMeteo(query) {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=de&format=json`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Geocoding fehlgeschlagen.');
+      const json = await res.json();
+      if (!json.results || !json.results.length) throw new Error('Ort nicht gefunden.');
+      const place = json.results[0];
+      return { name: `${place.name}${place.country ? ', ' + place.country : ''}`, lat: place.latitude, lon: place.longitude };
+    }
+
+    async function fetchFromOpenMeteo(location, days) {
+      const geo = await geocodeWithOpenMeteo(location);
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&daily=temperature_2m_mean&forecast_days=${days}&timezone=auto`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Open-Meteo Anfrage fehlgeschlagen.');
+      const json = await res.json();
+      return {
+        source: 'Open-Meteo',
+        place: geo.name,
+        timezone: json.timezone,
+        updated: new Date().toLocaleString('de-DE'),
+        hourly: { times: json.hourly.time, temps: json.hourly.temperature_2m },
+        daily: { days: json.daily.time, avg: json.daily.temperature_2m_mean }
+      };
+    }
+
+    async function fetchFromWeatherApi(location, days, apiKey) {
+      if (!apiKey) throw new Error('Für WeatherAPI wird ein API-Key benötigt.');
+      const url = `https://api.weatherapi.com/v1/forecast.json?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(location)}&days=${days}&aqi=no&alerts=no&lang=de`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('WeatherAPI Anfrage fehlgeschlagen (Key/Limit prüfen).');
+      const json = await res.json();
+
+      const hourlyTimes = [];
+      const hourlyTemps = [];
+      json.forecast.forecastday.forEach(day => {
+        day.hour.forEach(h => {
+          hourlyTimes.push(h.time);
+          hourlyTemps.push(h.temp_c);
+        });
+      });
+
+      return {
+        source: 'WeatherAPI',
+        place: `${json.location.name}, ${json.location.country}`,
+        timezone: json.location.tz_id,
+        updated: new Date(json.current.last_updated).toLocaleString('de-DE'),
+        hourly: { times: hourlyTimes, temps: hourlyTemps },
+        daily: {
+          days: json.forecast.forecastday.map(d => d.date),
+          avg: json.forecast.forecastday.map(d => d.day.avgtemp_c)
+        }
+      };
+    }
+
+    async function loadWeather() {
+      const location = locationInput.value.trim();
+      const source = sourceSelect.value;
+      const days = Number(daysSelect.value);
+      const apiKey = apiKeyInput.value.trim();
+
+      if (!location) return setStatus('Bitte einen Ort eingeben.', 'error');
+
+      setStatus('Lade Wetterdaten…', 'info');
+      loadBtn.disabled = true;
+
+      try {
+        currentData = source === 'open-meteo'
+          ? await fetchFromOpenMeteo(location, days)
+          : await fetchFromWeatherApi(location, days, apiKey);
+
+        renderChart(currentData);
+        metaBox.innerHTML = `
+          <span><strong>Quelle:</strong> ${currentData.source}</span>
+          <span><strong>Ort:</strong> ${currentData.place}</span>
+          <span><strong>Zeitzone:</strong> ${currentData.timezone}</span>
+          <span><strong>Aktualisiert:</strong> ${currentData.updated}</span>
+        `;
+        setStatus('Daten erfolgreich geladen.', 'ok');
+      } catch (err) {
+        setStatus(err.message || 'Unbekannter Fehler beim Laden der Daten.', 'error');
+      } finally {
+        loadBtn.disabled = false;
+      }
+    }
+
+    zoomDayBtn.addEventListener('click', () => setZoom('day'));
+    zoomWeekBtn.addEventListener('click', () => setZoom('week'));
+    loadBtn.addEventListener('click', loadWeather);
+    window.addEventListener('DOMContentLoaded', loadWeather);
+  </script>
+</body>
+</html>
