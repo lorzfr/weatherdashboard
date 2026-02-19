@@ -251,6 +251,32 @@
     .integration-plan li + li {
       margin-top: 0.35rem;
     }
+
+    .summary-grid {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.7rem;
+    }
+
+    .summary-card {
+      background: rgba(255,255,255,0.56);
+      border: 1px solid rgba(255,255,255,0.8);
+      border-radius: 0.9rem;
+      padding: 0.65rem 0.8rem;
+    }
+
+    .summary-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+
+    .summary-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #183153;
+    }
   </style>
 </head>
 <body>
@@ -276,7 +302,7 @@
 
     <section class="panel chart-panel">
       <button id="refreshBtn" type="button" class="refresh-btn">Aktualisieren</button>
-      <h3 id="chartTitle">Temperaturverlauf</h3>
+      <h3 id="chartTitle">Wetterverlauf</h3>
       <canvas id="weatherChart"></canvas>
       <div class="zoom-toggle" id="zoomToggle" role="group" aria-label="Ansicht wechseln">
         <button type="button" id="dayBtn" class="toggle-btn active">Tag</button>
@@ -286,6 +312,7 @@
 
     <section class="panel footnote">
       <div class="meta" id="meta"></div>
+      <div class="summary-grid" id="summaryGrid"></div>
 
       <strong>Hinweise:</strong>
       <ul>
@@ -293,11 +320,11 @@
         <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln. Mit dem runden 📍-Button fragt die App deine Position ab.</li>
       </ul>
 
-      <strong>Plan: Wetter + Niederschlag integrieren</strong>
+      <strong>Neu integriert:</strong>
       <ol class="integration-plan">
-        <li>Open-Meteo um <code>hourly=precipitation,precipitation_probability</code> erweitern und die Werte zusammen mit der Temperatur laden.</li>
-        <li>Im Chart eine zweite Y-Achse (mm) für Niederschlag ergänzen und die Regenwahrscheinlichkeit als Linie darstellen.</li>
-        <li>In der Tagesansicht Zeitfenster mit Regen (z. B. &gt; 0.2 mm/h) farblich markieren, damit man trockene Zeiträume sofort sieht.</li>
+        <li>Niederschlag (mm/h) und Regenwahrscheinlichkeit (%) in der Vorhersage.</li>
+        <li>Weitere Wetterwerte wie Luftfeuchte und Wind als kompakte Übersicht.</li>
+        <li>Tages- und Wochenansicht mit kombinierten Temperatur- und Regen-Daten.</li>
       </ol>
     </section>
   </main>
@@ -308,6 +335,7 @@
     const locateBtn = document.getElementById('locateBtn');
     const statusBox = document.getElementById('status');
     const metaBox = document.getElementById('meta');
+    const summaryGrid = document.getElementById('summaryGrid');
     const chartTitle = document.getElementById('chartTitle');
     const dayBtn = document.getElementById('dayBtn');
     const weekBtn = document.getElementById('weekBtn');
@@ -381,24 +409,63 @@
       return { min, avg, max };
     }
 
-    function buildWeekSeries(hourlyTimes, hourlyTemps) {
+    function buildWeekSeries(hourlyTimes, hourlyTemps, hourlyRain, hourlyRainProbability) {
       const map = new Map();
       hourlyTimes.forEach((t, i) => {
         const day = new Date(t).toISOString().slice(0, 10);
-        if (!map.has(day)) map.set(day, []);
-        map.get(day).push(hourlyTemps[i]);
+        if (!map.has(day)) map.set(day, { temp: [], rain: [], prob: [] });
+        const bucket = map.get(day);
+        bucket.temp.push(hourlyTemps[i]);
+        bucket.rain.push(hourlyRain[i]);
+        bucket.prob.push(hourlyRainProbability[i]);
       });
 
       const days = Array.from(map.keys()).slice(0, 7);
       return {
         labels: days.map(toDayLabel),
-        min: days.map((day) => Math.min(...map.get(day))),
-        max: days.map((day) => Math.max(...map.get(day))),
+        min: days.map((day) => Math.min(...map.get(day).temp)),
+        max: days.map((day) => Math.max(...map.get(day).temp)),
         avg: days.map((day) => {
-          const arr = map.get(day);
+          const arr = map.get(day).temp;
           return arr.reduce((sum, v) => sum + v, 0) / arr.length;
-        })
+        }),
+        rainSum: days.map((day) => map.get(day).rain.reduce((sum, v) => sum + (v || 0), 0)),
+        rainProbMax: days.map((day) => Math.max(...map.get(day).prob))
       };
+    }
+
+    function renderSummary(data) {
+      const times = data.hourly.times.slice(0, 24);
+      const temps = data.hourly.temps.slice(0, 24);
+      const rain = data.hourly.precipitation.slice(0, 24);
+      const probs = data.hourly.precipitationProbability.slice(0, 24);
+      const humidity = data.hourly.humidity.slice(0, 24);
+      const wind = data.hourly.windSpeed.slice(0, 24);
+
+      const wetHours = rain.filter((v) => (v || 0) > 0.2).length;
+      const rainSum = rain.reduce((sum, v) => sum + (v || 0), 0);
+      const maxProb = Math.max(...probs);
+      const avgHumidity = humidity.reduce((sum, v) => sum + v, 0) / humidity.length;
+      const avgWind = wind.reduce((sum, v) => sum + v, 0) / wind.length;
+
+      const warmestIndex = temps.findIndex((v) => v === Math.max(...temps));
+      const warmestTime = warmestIndex >= 0 ? new Date(times[warmestIndex]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '–';
+
+      const cards = [
+        { label: 'Niederschlag (24h)', value: `${rainSum.toFixed(1)} mm` },
+        { label: 'Regenrisiko (max)', value: `${Math.round(maxProb)} %` },
+        { label: 'Nasse Stunden', value: `${wetHours} h` },
+        { label: 'Ø Luftfeuchte', value: `${Math.round(avgHumidity)} %` },
+        { label: 'Ø Wind (10 m)', value: `${avgWind.toFixed(1)} km/h` },
+        { label: 'Wärmste Zeit', value: warmestTime }
+      ];
+
+      summaryGrid.innerHTML = cards.map((card) => `
+        <article class="summary-card">
+          <div class="summary-label">${card.label}</div>
+          <div class="summary-value">${card.value}</div>
+        </article>
+      `).join('');
     }
 
     function renderChart(data) {
@@ -409,9 +476,11 @@
 
       if (zoomMode === 'day') {
         const dayTemps = data.hourly.temps.slice(0, 24);
+        const dayRain = data.hourly.precipitation.slice(0, 24);
+        const dayRainProbability = data.hourly.precipitationProbability.slice(0, 24);
         const daySeries = buildDaySeries(dayTemps);
         labels = data.hourly.times.slice(0, 24).map(toHourLabel);
-        title = 'Temperatur – Tages-Detail (Min / Avg / Max)';
+        title = 'Tages-Detail: Temperatur, Niederschlag und Regenrisiko';
         datasets = [
           {
             label: 'Min (°C)',
@@ -425,6 +494,7 @@
             pointHoverBackgroundColor: '#ffffff',
             pointHoverBorderColor: '#60a5fa',
             pointHoverBorderWidth: 2,
+            yAxisID: 'yTemp'
           },
           {
             label: 'Avg (°C)',
@@ -439,6 +509,7 @@
             pointHoverBackgroundColor: '#ffffff',
             pointHoverBorderColor: '#38bdf8',
             pointHoverBorderWidth: 2,
+            yAxisID: 'yTemp'
           },
           {
             label: 'Max (°C)',
@@ -452,12 +523,33 @@
             pointHoverBackgroundColor: '#ffffff',
             pointHoverBorderColor: '#f472b6',
             pointHoverBorderWidth: 2,
+            yAxisID: 'yTemp'
+          },
+          {
+            type: 'bar',
+            label: 'Niederschlag (mm/h)',
+            data: dayRain,
+            backgroundColor: 'rgba(14, 165, 233, 0.35)',
+            borderColor: 'rgba(14, 165, 233, 0.65)',
+            borderWidth: 1,
+            yAxisID: 'yRain',
+          },
+          {
+            label: 'Regenwahrscheinlichkeit (%)',
+            data: dayRainProbability,
+            borderColor: '#0ea5e9',
+            backgroundColor: 'rgba(14, 165, 233, 0.12)',
+            fill: false,
+            tension: 0.3,
+            borderDash: [6, 4],
+            pointRadius: 1.8,
+            yAxisID: 'yPercent'
           }
         ];
       } else {
-        const weekSeries = buildWeekSeries(data.hourly.times, data.hourly.temps);
+        const weekSeries = buildWeekSeries(data.hourly.times, data.hourly.temps, data.hourly.precipitation, data.hourly.precipitationProbability);
         labels = weekSeries.labels;
-        title = 'Temperatur – Woche (Min / Avg / Max)';
+        title = 'Woche: Temperatur, Regenmenge und Regenrisiko';
         datasets = [
           {
             label: 'Min (°C)',
@@ -467,6 +559,7 @@
             fill: false,
             tension: 0.25,
             pointRadius: 3,
+            yAxisID: 'yTemp'
           },
           {
             label: 'Avg (°C)',
@@ -477,6 +570,7 @@
             tension: 0.25,
             borderWidth: 3,
             pointRadius: 3,
+            yAxisID: 'yTemp'
           },
           {
             label: 'Max (°C)',
@@ -486,6 +580,26 @@
             fill: false,
             tension: 0.25,
             pointRadius: 3,
+            yAxisID: 'yTemp'
+          },
+          {
+            type: 'bar',
+            label: 'Niederschlag gesamt (mm/Tag)',
+            data: weekSeries.rainSum,
+            backgroundColor: 'rgba(14, 165, 233, 0.35)',
+            borderColor: 'rgba(14, 165, 233, 0.65)',
+            borderWidth: 1,
+            yAxisID: 'yRain',
+          },
+          {
+            label: 'Regenwahrscheinlichkeit max (%)',
+            data: weekSeries.rainProbMax,
+            borderColor: '#0ea5e9',
+            fill: false,
+            tension: 0.25,
+            pointRadius: 3,
+            borderDash: [6, 4],
+            yAxisID: 'yPercent'
           }
         ];
       }
@@ -517,13 +631,19 @@
                   if (!items?.[0]?.label) return '';
                   return zoomMode === 'week' ? `Tag: ${items[0].label}` : `Zeit: ${items[0].label}`;
                 },
-                label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(1)} °C`
+                label: (context) => {
+                  if (context.dataset.yAxisID === 'yRain') return `${context.dataset.label}: ${context.parsed.y.toFixed(1)} mm`;
+                  if (context.dataset.yAxisID === 'yPercent') return `${context.dataset.label}: ${Math.round(context.parsed.y)} %`;
+                  return `${context.dataset.label}: ${context.parsed.y.toFixed(1)} °C`;
+                }
               }
             }
           },
           scales: {
             x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
-            y: { min: yScale.min, max: yScale.max, ticks: { color: '#94a3b8' } }
+            yTemp: { position: 'left', min: yScale.min, max: yScale.max, ticks: { color: '#94a3b8' }, title: { display: true, text: '°C', color: '#64748b' } },
+            yRain: { position: 'right', beginAtZero: true, ticks: { color: '#0284c7' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'mm', color: '#0284c7' } },
+            yPercent: { position: 'right', min: 0, max: 100, ticks: { color: '#0369a1' }, grid: { drawOnChartArea: false }, title: { display: true, text: '%', color: '#0369a1' } }
           }
         }
       });
@@ -600,7 +720,7 @@
 
     async function fetchFromOpenMeteo(location, days, fixedCoords = null) {
       const geo = fixedCoords || await resolveLocation(location);
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&forecast_days=${days}&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m,precipitation,precipitation_probability,relative_humidity_2m,wind_speed_10m&wind_speed_unit=kmh&forecast_days=${days}&timezone=auto`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Open-Meteo Anfrage fehlgeschlagen.');
       const json = await res.json();
@@ -612,7 +732,11 @@
         updated: new Date().toLocaleString('de-DE'),
         hourly: {
           times: json.hourly.time,
-          temps: json.hourly.temperature_2m
+          temps: json.hourly.temperature_2m,
+          precipitation: json.hourly.precipitation,
+          precipitationProbability: json.hourly.precipitation_probability,
+          humidity: json.hourly.relative_humidity_2m,
+          windSpeed: json.hourly.wind_speed_10m
         }
       };
     }
@@ -715,6 +839,7 @@
 
         lastData = data;
         renderChart(data);
+        renderSummary(data);
 
         metaBox.innerHTML = `
           <span><strong>Quelle:</strong> ${data.source}</span>
@@ -727,6 +852,7 @@
         console.error(err);
         destroyChart();
         metaBox.innerHTML = '';
+        summaryGrid.innerHTML = '';
         setStatus(err.message || 'Unbekannter Fehler beim Laden der Daten.', 'error');
       } finally {
         loadBtn.disabled = false;
