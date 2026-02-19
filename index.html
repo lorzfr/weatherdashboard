@@ -116,7 +116,7 @@
       flex-wrap: wrap;
       color: #334155;
       font-size: 0.9rem;
-      margin-top: 0.75rem;
+      margin-top: 0.4rem;
     }
 
     .meta span {
@@ -183,7 +183,17 @@
       color: #46556f;
       font-size: 0.85rem;
       line-height: 1.45;
-    }  </style>
+    }
+
+    .integration-plan {
+      margin-top: 0.85rem;
+      padding-left: 1.1rem;
+    }
+
+    .integration-plan li + li {
+      margin-top: 0.35rem;
+    }
+  </style>
 </head>
 <body>
   <main class="container">
@@ -198,21 +208,10 @@
         </div>
 
         <div>
-          <label for="days">Tage</label>
-          <select id="days">
-            <option value="3">3</option>
-            <option value="5" selected>5</option>
-            <option value="7">7</option>
-          </select>
-        </div>
-
-        <div>
           <button id="loadBtn">Wetter laden</button>
           <button id="locateBtn" type="button" class="btn-secondary">📍 Meinen Standort nutzen</button>
         </div>
       </div>
-
-      <div class="meta" id="meta"></div>
       <div id="status" class="status"></div>
     </section>
 
@@ -226,17 +225,25 @@
     </section>
 
     <section class="panel footnote">
+      <div class="meta" id="meta"></div>
+
       <strong>Hinweise:</strong>
       <ul>
         <li>Verwendet ausschließlich die Open-Meteo API (kein API-Key nötig).</li>
         <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln. Mit „📍 Meinen Standort nutzen“ fragt die App deine Position ab.</li>
       </ul>
+
+      <strong>Plan: Wetter + Niederschlag integrieren</strong>
+      <ol class="integration-plan">
+        <li>Open-Meteo um <code>hourly=precipitation,precipitation_probability</code> erweitern und die Werte zusammen mit der Temperatur laden.</li>
+        <li>Im Chart eine zweite Y-Achse (mm) für Niederschlag ergänzen und die Regenwahrscheinlichkeit als Linie darstellen.</li>
+        <li>In der Tagesansicht Zeitfenster mit Regen (z. B. &gt; 0.2 mm/h) farblich markieren, damit man trockene Zeiträume sofort sieht.</li>
+      </ol>
     </section>
   </main>
 
   <script>
     const locationInput = document.getElementById('location');
-    const daysSelect = document.getElementById('days');
     const loadBtn = document.getElementById('loadBtn');
     const locateBtn = document.getElementById('locateBtn');
     const statusBox = document.getElementById('status');
@@ -248,6 +255,7 @@
     let weatherChart;
     let lastData = null;
     let zoomMode = 'day';
+    const forecastDays = 7;
 
     function setStatus(message, type = 'info') {
       statusBox.className = `status ${type}`;
@@ -587,7 +595,6 @@
 
     async function loadWeather(options = {}) {
       const location = locationInput.value.trim();
-      const days = Number(daysSelect.value);
       const fixedCoords = options.fixedCoords || null;
 
       if (!location) {
@@ -599,7 +606,7 @@
       loadBtn.disabled = true;
 
       try {
-        const data = await fetchFromOpenMeteo(location, days, fixedCoords);
+        const data = await fetchFromOpenMeteo(location, forecastDays, fixedCoords);
 
         lastData = data;
         renderChart(data);
