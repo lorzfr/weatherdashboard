@@ -7,25 +7,30 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
-      --bg-1: #0f172a;
-      --bg-2: #1e293b;
-      --card: rgba(15, 23, 42, 0.75);
-      --border: rgba(255, 255, 255, 0.12);
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --accent: #38bdf8;
-      --accent-2: #a78bfa;
-      --ok: #22c55e;
-      --err: #ef4444;
+      --bg-top: #eaf2ff;
+      --bg-bottom: #f7f9ff;
+      --glass: rgba(255, 255, 255, 0.62);
+      --glass-strong: rgba(255, 255, 255, 0.78);
+      --border: rgba(255, 255, 255, 0.75);
+      --text: #0f172a;
+      --muted: #5f6b85;
+      --accent: #0a84ff;
+      --accent-2: #5e5ce6;
+      --ok: #30d158;
+      --err: #ff453a;
+      --shadow: 0 18px 48px rgba(12, 40, 90, 0.12);
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
       color: var(--text);
-      background: radial-gradient(circle at top, #1d4ed8 0%, var(--bg-1) 35%), linear-gradient(140deg, var(--bg-1), var(--bg-2));
+      background:
+        radial-gradient(1200px 700px at 20% -10%, rgba(10, 132, 255, 0.20), transparent 60%),
+        radial-gradient(900px 600px at 90% 5%, rgba(94, 92, 230, 0.18), transparent 58%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
       min-height: 100vh;
     }
 
@@ -38,17 +43,19 @@
     }
 
     .panel {
-      background: var(--card);
+      background: var(--glass);
       border: 1px solid var(--border);
-      border-radius: 1rem;
+      border-radius: 1.35rem;
       padding: 1rem;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(22px) saturate(140%);
+      -webkit-backdrop-filter: blur(22px) saturate(140%);
+      box-shadow: var(--shadow);
     }
 
     h1 {
-      margin: 0 0 0.25rem 0;
+      margin: 0 0 0.3rem 0;
       font-size: clamp(1.4rem, 2vw, 2rem);
+      letter-spacing: -0.02em;
     }
 
     .subtitle { color: var(--muted); margin: 0; }
@@ -62,58 +69,79 @@
 
     label {
       display: block;
-      font-size: 0.86rem;
+      font-size: 0.82rem;
       margin-bottom: 0.4rem;
       color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.01em;
     }
 
     input, select, button {
       width: 100%;
-      border-radius: 0.7rem;
-      border: 1px solid var(--border);
-      padding: 0.7rem 0.8rem;
-      background: rgba(15, 23, 42, 0.75);
+      border-radius: 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      padding: 0.72rem 0.86rem;
+      background: var(--glass-strong);
       color: var(--text);
       font-size: 0.95rem;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: rgba(10, 132, 255, 0.6);
+      box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.16);
     }
 
     button {
       cursor: pointer;
-      background: linear-gradient(120deg, var(--accent), var(--accent-2));
-      color: white;
-      border: none;
+      border: 0;
+      color: #fff;
       font-weight: 600;
-      transition: transform .08s ease;
+      transition: transform .08s ease, filter .15s ease;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
     }
 
-    button:hover { transform: translateY(-1px); }
+    .btn-secondary {
+      margin-top: 0.55rem;
+      background: rgba(255, 255, 255, 0.66);
+      color: #1f2a44;
+      border: 1px solid rgba(255, 255, 255, 0.92);
+    }
+
+    button:hover { transform: translateY(-1px); filter: brightness(1.03); }
 
     .meta {
       display: flex;
-      gap: 1rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
-      color: var(--muted);
-      font-size: 0.92rem;
+      color: #334155;
+      font-size: 0.9rem;
       margin-top: 0.75rem;
+    }
+
+    .meta span {
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(255,255,255,0.8);
+      border-radius: 999px;
+      padding: 0.32rem 0.62rem;
     }
 
     .status {
       margin-top: 0.6rem;
       font-size: 0.9rem;
       padding: 0.55rem 0.7rem;
-      border-radius: 0.6rem;
+      border-radius: 0.75rem;
       display: none;
     }
 
-    .status.info { display: block; background: rgba(56,189,248,.15); border: 1px solid rgba(56,189,248,.4); }
-    .status.error { display: block; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.4); }
-    .status.ok { display: block; background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.4); }
+    .status.info { display: block; background: rgba(10,132,255,.12); border: 1px solid rgba(10,132,255,.3); }
+    .status.error { display: block; background: rgba(255,69,58,.12); border: 1px solid rgba(255,69,58,.34); }
+    .status.ok { display: block; background: rgba(48,209,88,.12); border: 1px solid rgba(48,209,88,.34); }
 
     canvas {
       width: 100% !important;
       height: 420px !important;
     }
-
 
     .chart-panel {
       position: relative;
@@ -125,10 +153,11 @@
       right: 1rem;
       bottom: 1rem;
       display: inline-flex;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255,255,255,0.95);
       border-radius: 999px;
       overflow: hidden;
-      background: rgba(15, 23, 42, 0.9);
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
     }
 
     .toggle-btn {
@@ -136,9 +165,9 @@
       min-width: 84px;
       padding: 0.45rem 0.9rem;
       border: 0;
-      border-right: 1px solid var(--border);
+      border-right: 1px solid rgba(255,255,255,0.82);
       background: transparent;
-      color: var(--muted);
+      color: #344968;
       font-weight: 600;
       cursor: pointer;
     }
@@ -147,14 +176,14 @@
 
     .toggle-btn.active {
       color: #fff;
-      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
     }
+
     .footnote {
-      color: var(--muted);
+      color: #46556f;
       font-size: 0.85rem;
       line-height: 1.45;
-    }
-  </style>
+    }  </style>
 </head>
 <body>
   <main class="container">
@@ -179,7 +208,7 @@
 
         <div>
           <button id="loadBtn">Wetter laden</button>
-          <button id="locateBtn" type="button" style="margin-top:0.55rem;background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.5);">📍 Meinen Standort nutzen</button>
+          <button id="locateBtn" type="button" class="btn-secondary">📍 Meinen Standort nutzen</button>
         </div>
       </div>
 
