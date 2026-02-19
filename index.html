@@ -114,6 +114,41 @@
       height: 420px !important;
     }
 
+
+    .chart-panel {
+      position: relative;
+      padding-bottom: 4.2rem;
+    }
+
+    .zoom-toggle {
+      position: absolute;
+      right: 1rem;
+      bottom: 1rem;
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .toggle-btn {
+      width: auto;
+      min-width: 84px;
+      padding: 0.45rem 0.9rem;
+      border: 0;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .toggle-btn:last-child { border-right: 0; }
+
+    .toggle-btn.active {
+      color: #fff;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    }
     .footnote {
       color: var(--muted);
       font-size: 0.85rem;
@@ -151,14 +186,6 @@
         </div>
 
         <div>
-          <label for="zoomMode">Zoom-Ansicht</label>
-          <select id="zoomMode">
-            <option value="day" selected>Tages-Detail (24h)</option>
-            <option value="week">Woche (7 Tage)</option>
-          </select>
-        </div>
-
-        <div>
           <label for="apiKey">API-Key (nur falls nötig)</label>
           <input id="apiKey" type="password" placeholder="WeatherAPI Key" />
         </div>
@@ -172,9 +199,13 @@
       <div id="status" class="status"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel chart-panel">
       <h3 id="chartTitle">Temperaturverlauf</h3>
       <canvas id="weatherChart"></canvas>
+      <div class="zoom-toggle" id="zoomToggle" role="group" aria-label="Ansicht wechseln">
+        <button type="button" id="dayBtn" class="toggle-btn active">Tag</button>
+        <button type="button" id="weekBtn" class="toggle-btn">Woche</button>
+      </div>
     </section>
 
     <section class="panel footnote">
@@ -182,7 +213,7 @@
       <ul>
         <li>Open-Meteo funktioniert direkt ohne Schlüssel.</li>
         <li>WeatherAPI benötigt einen eigenen API-Key.</li>
-        <li>Zoom-Ansicht: 24h-Detail oder Wochenansicht ohne Min/Max-Balken.</li>
+        <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln.</li>
       </ul>
     </section>
   </main>
@@ -191,15 +222,17 @@
     const locationInput = document.getElementById('location');
     const sourceSelect = document.getElementById('source');
     const daysSelect = document.getElementById('days');
-    const zoomModeSelect = document.getElementById('zoomMode');
-    const apiKeyInput = document.getElementById('apiKey');
+        const apiKeyInput = document.getElementById('apiKey');
     const loadBtn = document.getElementById('loadBtn');
     const statusBox = document.getElementById('status');
     const metaBox = document.getElementById('meta');
     const chartTitle = document.getElementById('chartTitle');
+    const dayBtn = document.getElementById('dayBtn');
+    const weekBtn = document.getElementById('weekBtn');
 
     let weatherChart;
     let lastData = null;
+    let zoomMode = 'day';
 
     function setStatus(message, type = 'info') {
       statusBox.className = `status ${type}`;
@@ -231,7 +264,9 @@
       const days = Array.from(map.keys()).slice(0, 7);
       return {
         labels: days.map(toDayLabel),
-        values: days.map((day) => {
+        min: days.map((day) => Math.min(...map.get(day))),
+        max: days.map((day) => Math.max(...map.get(day))),
+        avg: days.map((day) => {
           const arr = map.get(day);
           return arr.reduce((sum, v) => sum + v, 0) / arr.length;
         })
@@ -240,21 +275,60 @@
 
     function renderChart(data) {
       destroyChart();
-      const zoomMode = zoomModeSelect.value;
-
       let labels;
-      let values;
+      let datasets;
       let title;
 
       if (zoomMode === 'day') {
         labels = data.hourly.times.slice(0, 24).map(toHourLabel);
-        values = data.hourly.temps.slice(0, 24);
         title = 'Temperatur – Tages-Detail (24h)';
+        datasets = [{
+          label: 'Temperatur (°C)',
+          data: data.hourly.temps.slice(0, 24),
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.2)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2,
+          pointHoverRadius: 7,
+          pointHoverBackgroundColor: '#ffffff',
+          pointHoverBorderColor: '#38bdf8',
+          pointHoverBorderWidth: 2,
+        }];
       } else {
         const weekSeries = buildWeekSeries(data.hourly.times, data.hourly.temps);
         labels = weekSeries.labels;
-        values = weekSeries.values;
-        title = 'Temperatur – Woche (Tagesmittel)';
+        title = 'Temperatur – Woche (Min / Avg / Max)';
+        datasets = [
+          {
+            label: 'Min (°C)',
+            data: weekSeries.min,
+            borderColor: '#60a5fa',
+            backgroundColor: 'rgba(96, 165, 250, 0.05)',
+            fill: false,
+            tension: 0.25,
+            pointRadius: 3,
+          },
+          {
+            label: 'Avg (°C)',
+            data: weekSeries.avg,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.18)',
+            fill: false,
+            tension: 0.25,
+            borderWidth: 3,
+            pointRadius: 3,
+          },
+          {
+            label: 'Max (°C)',
+            data: weekSeries.max,
+            borderColor: '#f472b6',
+            backgroundColor: 'rgba(244, 114, 182, 0.05)',
+            fill: false,
+            tension: 0.25,
+            pointRadius: 3,
+          }
+        ];
       }
 
       chartTitle.textContent = title;
@@ -263,19 +337,7 @@
         type: 'line',
         data: {
           labels,
-          datasets: [{
-            label: 'Temperatur (°C)',
-            data: values,
-            borderColor: '#38bdf8',
-            backgroundColor: 'rgba(56, 189, 248, 0.2)',
-            fill: true,
-            tension: 0.3,
-            pointRadius: zoomMode === 'day' ? 2 : 3,
-            pointHoverRadius: 7,
-            pointHoverBackgroundColor: '#ffffff',
-            pointHoverBorderColor: '#38bdf8',
-            pointHoverBorderWidth: 2,
-          }]
+          datasets
         },
         options: {
           responsive: true,
@@ -291,7 +353,7 @@
               displayColors: false,
               callbacks: {
                 title: (items) => items?.[0]?.label ? `Zeit: ${items[0].label}` : '',
-                label: (context) => `Temperatur: ${context.parsed.y.toFixed(1)} °C`
+                label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(1)} °C`
               }
             }
           },
@@ -455,7 +517,17 @@
       }
     }
 
-    zoomModeSelect.addEventListener('change', () => {
+    dayBtn.addEventListener('click', () => {
+      zoomMode = 'day';
+      dayBtn.classList.add('active');
+      weekBtn.classList.remove('active');
+      if (lastData) renderChart(lastData);
+    });
+
+    weekBtn.addEventListener('click', () => {
+      zoomMode = 'week';
+      weekBtn.classList.add('active');
+      dayBtn.classList.remove('active');
       if (lastData) renderChart(lastData);
     });
 
