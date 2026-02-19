@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wetter Dashboard – All-in-One</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-1: #0f172a;
+      --bg-2: #1e293b;
+      --card: rgba(15, 23, 42, 0.75);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #a78bfa;
+      --ok: #22c55e;
+      --err: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top, #1d4ed8 0%, var(--bg-1) 35%), linear-gradient(140deg, var(--bg-1), var(--bg-2));
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 1rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1rem;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      margin: 0 0 0.25rem 0;
+      font-size: clamp(1.4rem, 2vw, 2rem);
+    }
+
+    .subtitle { color: var(--muted); margin: 0; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-size: 0.86rem;
+      margin-bottom: 0.4rem;
+      color: var(--muted);
+    }
+
+    input, select, button {
+      width: 100%;
+      border-radius: 0.7rem;
+      border: 1px solid var(--border);
+      padding: 0.7rem 0.8rem;
+      background: rgba(15, 23, 42, 0.75);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      color: white;
+      border: none;
+      font-weight: 600;
+      transition: transform .08s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+
+    .meta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 0.75rem;
+    }
+
+    .status {
+      margin-top: 0.6rem;
+      font-size: 0.9rem;
+      padding: 0.55rem 0.7rem;
+      border-radius: 0.6rem;
+      display: none;
+    }
+
+    .status.info { display: block; background: rgba(56,189,248,.15); border: 1px solid rgba(56,189,248,.4); }
+    .status.error { display: block; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.4); }
+    .status.ok { display: block; background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.4); }
+
+    canvas {
+      width: 100% !important;
+      height: 420px !important;
+    }
+
+    .footnote {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="panel">
+      <h1>🌤️ Wetter Dashboard (All-in-One HTML)</h1>
+      <p class="subtitle">Vorhersage für Stunden und nächste Tage mit wechselbaren API-Quellen.</p>
+
+      <div class="controls" style="margin-top: 1rem;">
+        <div>
+          <label for="location">Ort (Stadt / PLZ / Land)</label>
+          <input id="location" type="text" placeholder="z.B. Berlin" value="Berlin" />
+        </div>
+
+        <div>
+          <label for="source">Datenquelle</label>
+          <select id="source">
+            <option value="open-meteo">Open-Meteo (ohne API-Key)</option>
+            <option value="weatherapi">WeatherAPI (API-Key nötig)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="days">Tage</label>
+          <select id="days">
+            <option value="3">3</option>
+            <option value="5" selected>5</option>
+            <option value="7">7</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="zoomMode">Zoom-Ansicht</label>
+          <select id="zoomMode">
+            <option value="day" selected>Tages-Detail (24h)</option>
+            <option value="week">Woche (7 Tage)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="apiKey">API-Key (nur falls nötig)</label>
+          <input id="apiKey" type="password" placeholder="WeatherAPI Key" />
+        </div>
+
+        <div>
+          <button id="loadBtn">Wetter laden</button>
+        </div>
+      </div>
+
+      <div class="meta" id="meta"></div>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section class="panel">
+      <h3 id="chartTitle">Temperaturverlauf</h3>
+      <canvas id="weatherChart"></canvas>
+    </section>
+
+    <section class="panel footnote">
+      <strong>Hinweise:</strong>
+      <ul>
+        <li>Open-Meteo funktioniert direkt ohne Schlüssel.</li>
+        <li>WeatherAPI benötigt einen eigenen API-Key.</li>
+        <li>Zoom-Ansicht: 24h-Detail oder Wochenansicht ohne Min/Max-Balken.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    const locationInput = document.getElementById('location');
+    const sourceSelect = document.getElementById('source');
+    const daysSelect = document.getElementById('days');
+    const zoomModeSelect = document.getElementById('zoomMode');
+    const apiKeyInput = document.getElementById('apiKey');
+    const loadBtn = document.getElementById('loadBtn');
+    const statusBox = document.getElementById('status');
+    const metaBox = document.getElementById('meta');
+    const chartTitle = document.getElementById('chartTitle');
+
+    let weatherChart;
+    let lastData = null;
+
+    function setStatus(message, type = 'info') {
+      statusBox.className = `status ${type}`;
+      statusBox.textContent = message;
+    }
+
+    function toHourLabel(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function toDayLabel(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    }
+
+    function destroyChart() {
+      if (weatherChart) weatherChart.destroy();
+    }
+
+    function buildWeekSeries(hourlyTimes, hourlyTemps) {
+      const map = new Map();
+      hourlyTimes.forEach((t, i) => {
+        const day = new Date(t).toISOString().slice(0, 10);
+        if (!map.has(day)) map.set(day, []);
+        map.get(day).push(hourlyTemps[i]);
+      });
+
+      const days = Array.from(map.keys()).slice(0, 7);
+      return {
+        labels: days.map(toDayLabel),
+        values: days.map((day) => {
+          const arr = map.get(day);
+          return arr.reduce((sum, v) => sum + v, 0) / arr.length;
+        })
+      };
+    }
+
+    function renderChart(data) {
+      destroyChart();
+      const zoomMode = zoomModeSelect.value;
+
+      let labels;
+      let values;
+      let title;
+
+      if (zoomMode === 'day') {
+        labels = data.hourly.times.slice(0, 24).map(toHourLabel);
+        values = data.hourly.temps.slice(0, 24);
+        title = 'Temperatur – Tages-Detail (24h)';
+      } else {
+        const weekSeries = buildWeekSeries(data.hourly.times, data.hourly.temps);
+        labels = weekSeries.labels;
+        values = weekSeries.values;
+        title = 'Temperatur – Woche (Tagesmittel)';
+      }
+
+      chartTitle.textContent = title;
+
+      weatherChart = new Chart(document.getElementById('weatherChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Temperatur (°C)',
+            data: values,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.2)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: zoomMode === 'day' ? 0 : 3,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#e2e8f0' } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+            y: { ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    async function geocodeWithOpenMeteo(query) {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=de&format=json`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Geocoding fehlgeschlagen.');
+      const json = await res.json();
+      if (!json.results || !json.results.length) throw new Error('Ort nicht gefunden.');
+      const place = json.results[0];
+      return {
+        name: `${place.name}${place.country ? ', ' + place.country : ''}`,
+        lat: place.latitude,
+        lon: place.longitude
+      };
+    }
+
+    async function fetchFromOpenMeteo(location, days) {
+      const geo = await geocodeWithOpenMeteo(location);
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&forecast_days=${days}&timezone=auto`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Open-Meteo Anfrage fehlgeschlagen.');
+      const json = await res.json();
+
+      return {
+        source: 'Open-Meteo',
+        place: geo.name,
+        timezone: json.timezone,
+        updated: new Date().toLocaleString('de-DE'),
+        hourly: {
+          times: json.hourly.time,
+          temps: json.hourly.temperature_2m
+        }
+      };
+    }
+
+    async function fetchFromWeatherApi(location, days, apiKey) {
+      if (!apiKey) throw new Error('Für WeatherAPI wird ein API-Key benötigt.');
+      const url = `https://api.weatherapi.com/v1/forecast.json?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(location)}&days=${days}&aqi=no&alerts=no&lang=de`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('WeatherAPI Anfrage fehlgeschlagen (Key/Limit prüfen).');
+      const json = await res.json();
+
+      const hourly = [];
+      const hourlyTemps = [];
+      json.forecast.forecastday.forEach(day => {
+        day.hour.forEach(h => {
+          hourly.push(h.time);
+          hourlyTemps.push(h.temp_c);
+        });
+      });
+
+      return {
+        source: 'WeatherAPI',
+        place: `${json.location.name}, ${json.location.country}`,
+        timezone: json.location.tz_id,
+        updated: new Date(json.current.last_updated).toLocaleString('de-DE'),
+        hourly: { times: hourly, temps: hourlyTemps }
+      };
+    }
+
+    async function loadWeather() {
+      const location = locationInput.value.trim();
+      const source = sourceSelect.value;
+      const days = Number(daysSelect.value);
+      const apiKey = apiKeyInput.value.trim();
+
+      if (!location) {
+        setStatus('Bitte einen Ort eingeben.', 'error');
+        return;
+      }
+
+      setStatus('Lade Wetterdaten…', 'info');
+      loadBtn.disabled = true;
+
+      try {
+        const data = source === 'open-meteo'
+          ? await fetchFromOpenMeteo(location, days)
+          : await fetchFromWeatherApi(location, days, apiKey);
+
+        lastData = data;
+        renderChart(data);
+
+        metaBox.innerHTML = `
+          <span><strong>Quelle:</strong> ${data.source}</span>
+          <span><strong>Ort:</strong> ${data.place}</span>
+          <span><strong>Zeitzone:</strong> ${data.timezone}</span>
+          <span><strong>Aktualisiert:</strong> ${data.updated}</span>
+        `;
+        setStatus('Daten erfolgreich geladen.', 'ok');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || 'Unbekannter Fehler beim Laden der Daten.', 'error');
+      } finally {
+        loadBtn.disabled = false;
+      }
+    }
+
+    zoomModeSelect.addEventListener('change', () => {
+      if (lastData) renderChart(lastData);
+    });
+
+    loadBtn.addEventListener('click', loadWeather);
+    window.addEventListener('DOMContentLoaded', loadWeather);
+  </script>
+</body>
+</html>
