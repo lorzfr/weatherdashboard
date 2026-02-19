@@ -270,13 +270,31 @@
             backgroundColor: 'rgba(56, 189, 248, 0.2)',
             fill: true,
             tension: 0.3,
-            pointRadius: zoomMode === 'day' ? 0 : 3,
+            pointRadius: zoomMode === 'day' ? 2 : 3,
+            pointHoverRadius: 7,
+            pointHoverBackgroundColor: '#ffffff',
+            pointHoverBorderColor: '#38bdf8',
+            pointHoverBorderWidth: 2,
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: '#e2e8f0' } } },
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false
+          },
+          plugins: {
+            legend: { labels: { color: '#e2e8f0' } },
+            tooltip: {
+              displayColors: false,
+              callbacks: {
+                title: (items) => items?.[0]?.label ? `Zeit: ${items[0].label}` : '',
+                label: (context) => `Temperatur: ${context.parsed.y.toFixed(1)} °C`
+              }
+            }
+          },
           scales: {
             x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
             y: { ticks: { color: '#94a3b8' } }
