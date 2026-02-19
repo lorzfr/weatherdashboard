@@ -15,8 +15,13 @@
       --muted: #94a3b8;
       --accent: #38bdf8;
       --accent-2: #a78bfa;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -24,46 +29,123 @@
       background: radial-gradient(circle at top, #1d4ed8 0%, var(--bg-1) 35%), linear-gradient(140deg, var(--bg-1), var(--bg-2));
       min-height: 100vh;
     }
-    .container { max-width: 1200px; margin: 2rem auto; padding: 1rem; display: grid; gap: 1rem; }
+
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 1rem;
+      display: grid;
+      gap: 1rem;
+    }
+
     .panel {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 1rem;
       padding: 1rem;
       backdrop-filter: blur(10px);
-      box-shadow: 0 8px 28px rgba(0,0,0,.2);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
     }
-    h1 { margin: 0 0 0.25rem 0; font-size: clamp(1.4rem, 2vw, 2rem); }
+
+    h1 {
+      margin: 0 0 0.25rem 0;
+      font-size: clamp(1.4rem, 2vw, 2rem);
+    }
+
     .subtitle { color: var(--muted); margin: 0; }
-    .controls { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:.75rem; align-items:end; }
-    label { display:block; font-size:.86rem; margin-bottom:.4rem; color:var(--muted); }
-    input, select, button {
-      width:100%; border-radius:.7rem; border:1px solid var(--border);
-      padding:.7rem .8rem; background:rgba(15,23,42,.75); color:var(--text); font-size:.95rem;
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+      align-items: end;
     }
-    button { cursor:pointer; background:linear-gradient(120deg,var(--accent),var(--accent-2)); color:#fff; border:none; font-weight:600; }
-    .meta { display:flex; gap:1rem; flex-wrap:wrap; color:var(--muted); font-size:.92rem; margin-top:.75rem; }
-    .status { margin-top:.6rem; font-size:.9rem; padding:.55rem .7rem; border-radius:.6rem; display:none; }
-    .status.info { display:block; background:rgba(56,189,248,.15); border:1px solid rgba(56,189,248,.4); }
-    .status.error { display:block; background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.4); }
-    .status.ok { display:block; background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.4); }
-    .zoom-switch { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.8rem; }
-    .zoom-btn { width:auto; background:rgba(56,189,248,.15); border:1px solid rgba(56,189,248,.35); }
-    .zoom-btn.active { background:linear-gradient(120deg,var(--accent),var(--accent-2)); border:none; }
-    canvas { width:100% !important; height:420px !important; }
-    .footnote { color: var(--muted); font-size: .85rem; line-height:1.45; }
+
+    label {
+      display: block;
+      font-size: 0.86rem;
+      margin-bottom: 0.4rem;
+      color: var(--muted);
+    }
+
+    input, select, button {
+      width: 100%;
+      border-radius: 0.7rem;
+      border: 1px solid var(--border);
+      padding: 0.7rem 0.8rem;
+      background: rgba(15, 23, 42, 0.75);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      color: white;
+      border: none;
+      font-weight: 600;
+      transition: transform .08s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+
+    .meta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 0.75rem;
+    }
+
+    .status {
+      margin-top: 0.6rem;
+      font-size: 0.9rem;
+      padding: 0.55rem 0.7rem;
+      border-radius: 0.6rem;
+      display: none;
+    }
+
+    .status.info { display: block; background: rgba(56,189,248,.15); border: 1px solid rgba(56,189,248,.4); }
+    .status.error { display: block; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.4); }
+    .status.ok { display: block; background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.4); }
+
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 360px !important;
+    }
+
+    .footnote {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+
+    @media (min-width: 980px) {
+      .charts {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <main class="container">
     <section class="panel">
       <h1>🌤️ Wetter Dashboard (All-in-One HTML)</h1>
-      <p class="subtitle">Stunden-Detail oder Wochenansicht per Zoom-Schalter.</p>
-      <div class="controls" style="margin-top:1rem;">
+      <p class="subtitle">Vorhersage für Stunden und nächste Tage mit wechselbaren API-Quellen.</p>
+
+      <div class="controls" style="margin-top: 1rem;">
         <div>
           <label for="location">Ort (Stadt / PLZ / Land)</label>
           <input id="location" type="text" placeholder="z.B. Berlin" value="Berlin" />
         </div>
+
         <div>
           <label for="source">Datenquelle</label>
           <select id="source">
@@ -71,37 +153,48 @@
             <option value="weatherapi">WeatherAPI (API-Key nötig)</option>
           </select>
         </div>
+
         <div>
           <label for="days">Tage</label>
           <select id="days">
             <option value="3">3</option>
-            <option value="5">5</option>
-            <option value="7" selected>7</option>
+            <option value="5" selected>5</option>
+            <option value="7">7</option>
           </select>
         </div>
+
         <div>
           <label for="apiKey">API-Key (nur falls nötig)</label>
           <input id="apiKey" type="password" placeholder="WeatherAPI Key" />
         </div>
-        <div><button id="loadBtn">Wetter laden</button></div>
+
+        <div>
+          <button id="loadBtn">Wetter laden</button>
+        </div>
       </div>
-      <div class="zoom-switch">
-        <button id="zoomDay" class="zoom-btn active">🔎 Tages-Detail (24h)</button>
-        <button id="zoomWeek" class="zoom-btn">🗓️ Woche</button>
-      </div>
+
       <div class="meta" id="meta"></div>
       <div id="status" class="status"></div>
     </section>
 
-    <section class="panel">
-      <h3 id="chartTitle">Temperaturverlauf</h3>
-      <canvas id="weatherChart"></canvas>
+    <section class="charts">
+      <article class="panel">
+        <h3>Stündliche Temperatur</h3>
+        <canvas id="hourlyChart"></canvas>
+      </article>
+
+      <article class="panel">
+        <h3>Tägliche Min/Max Temperatur</h3>
+        <canvas id="dailyChart"></canvas>
+      </article>
     </section>
 
     <section class="panel footnote">
+      <strong>Hinweise:</strong>
       <ul>
-        <li>Min/Max-Diagramm wurde entfernt.</li>
-        <li>Zoom-Schalter wechselt zwischen stündlicher 24h-Ansicht und Wochenansicht.</li>
+        <li>Open-Meteo funktioniert direkt ohne Schlüssel.</li>
+        <li>WeatherAPI benötigt einen eigenen API-Key.</li>
+        <li>Alle Logik (HTML, CSS, JS) liegt in dieser einen Datei.</li>
       </ul>
     </section>
   </main>
@@ -114,62 +207,45 @@
     const loadBtn = document.getElementById('loadBtn');
     const statusBox = document.getElementById('status');
     const metaBox = document.getElementById('meta');
-    const chartTitle = document.getElementById('chartTitle');
-    const zoomDayBtn = document.getElementById('zoomDay');
-    const zoomWeekBtn = document.getElementById('zoomWeek');
 
-    let weatherChart;
-    let currentData = null;
-    let currentZoom = 'day';
+    let hourlyChart;
+    let dailyChart;
 
     function setStatus(message, type = 'info') {
       statusBox.className = `status ${type}`;
       statusBox.textContent = message;
     }
 
-    function toHourLabel(isoString) {
-      return new Date(isoString).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    function clearStatus() {
+      statusBox.className = 'status';
+      statusBox.textContent = '';
     }
 
-    function toDayLabel(isoDate) {
-      return new Date(isoDate).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    function toLocalHourLabel(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
     }
 
-    function setZoom(mode) {
-      currentZoom = mode;
-      zoomDayBtn.classList.toggle('active', mode === 'day');
-      zoomWeekBtn.classList.toggle('active', mode === 'week');
-      if (currentData) renderChart(currentData);
+    function destroyCharts() {
+      if (hourlyChart) hourlyChart.destroy();
+      if (dailyChart) dailyChart.destroy();
     }
 
-    function renderChart(data) {
-      if (weatherChart) weatherChart.destroy();
+    function renderCharts(data) {
+      destroyCharts();
 
-      let labels = [];
-      let temps = [];
-      if (currentZoom === 'day') {
-        labels = data.hourly.times.slice(0, 24).map(toHourLabel);
-        temps = data.hourly.temps.slice(0, 24);
-        chartTitle.textContent = 'Temperaturverlauf – Tages-Detail (24h)';
-      } else {
-        labels = data.daily.days.map(toDayLabel);
-        temps = data.daily.avg;
-        chartTitle.textContent = 'Temperaturverlauf – Woche';
-      }
-
-      weatherChart = new Chart(document.getElementById('weatherChart'), {
+      hourlyChart = new Chart(document.getElementById('hourlyChart'), {
         type: 'line',
         data: {
-          labels,
+          labels: data.hourly.times.map(toLocalHourLabel),
           datasets: [{
             label: 'Temperatur (°C)',
-            data: temps,
+            data: data.hourly.temps,
             borderColor: '#38bdf8',
             backgroundColor: 'rgba(56, 189, 248, 0.2)',
             fill: true,
             tension: 0.3,
-            pointRadius: 2,
-            pointHoverRadius: 4
+            pointRadius: 0,
           }]
         },
         options: {
@@ -178,6 +254,34 @@
           plugins: { legend: { labels: { color: '#e2e8f0' } } },
           scales: {
             x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+            y: { ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+
+      dailyChart = new Chart(document.getElementById('dailyChart'), {
+        type: 'bar',
+        data: {
+          labels: data.daily.days,
+          datasets: [
+            {
+              label: 'Min (°C)',
+              data: data.daily.min,
+              backgroundColor: 'rgba(59,130,246,0.6)'
+            },
+            {
+              label: 'Max (°C)',
+              data: data.daily.max,
+              backgroundColor: 'rgba(168,85,247,0.65)'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#e2e8f0' } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' } },
             y: { ticks: { color: '#94a3b8' } }
           }
         }
@@ -191,22 +295,34 @@
       const json = await res.json();
       if (!json.results || !json.results.length) throw new Error('Ort nicht gefunden.');
       const place = json.results[0];
-      return { name: `${place.name}${place.country ? ', ' + place.country : ''}`, lat: place.latitude, lon: place.longitude };
+      return {
+        name: `${place.name}${place.country ? ', ' + place.country : ''}`,
+        lat: place.latitude,
+        lon: place.longitude
+      };
     }
 
     async function fetchFromOpenMeteo(location, days) {
       const geo = await geocodeWithOpenMeteo(location);
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&daily=temperature_2m_mean&forecast_days=${days}&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min&forecast_days=${days}&timezone=auto`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Open-Meteo Anfrage fehlgeschlagen.');
       const json = await res.json();
+
       return {
         source: 'Open-Meteo',
         place: geo.name,
         timezone: json.timezone,
         updated: new Date().toLocaleString('de-DE'),
-        hourly: { times: json.hourly.time, temps: json.hourly.temperature_2m },
-        daily: { days: json.daily.time, avg: json.daily.temperature_2m_mean }
+        hourly: {
+          times: json.hourly.time,
+          temps: json.hourly.temperature_2m
+        },
+        daily: {
+          days: json.daily.time.map(d => new Date(d).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })),
+          min: json.daily.temperature_2m_min,
+          max: json.daily.temperature_2m_max
+        }
       };
     }
 
@@ -217,11 +333,11 @@
       if (!res.ok) throw new Error('WeatherAPI Anfrage fehlgeschlagen (Key/Limit prüfen).');
       const json = await res.json();
 
-      const hourlyTimes = [];
+      const hourly = [];
       const hourlyTemps = [];
       json.forecast.forecastday.forEach(day => {
         day.hour.forEach(h => {
-          hourlyTimes.push(h.time);
+          hourly.push(h.time);
           hourlyTemps.push(h.temp_c);
         });
       });
@@ -231,10 +347,11 @@
         place: `${json.location.name}, ${json.location.country}`,
         timezone: json.location.tz_id,
         updated: new Date(json.current.last_updated).toLocaleString('de-DE'),
-        hourly: { times: hourlyTimes, temps: hourlyTemps },
+        hourly: { times: hourly, temps: hourlyTemps },
         daily: {
-          days: json.forecast.forecastday.map(d => d.date),
-          avg: json.forecast.forecastday.map(d => d.day.avgtemp_c)
+          days: json.forecast.forecastday.map(d => new Date(d.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })),
+          min: json.forecast.forecastday.map(d => d.day.mintemp_c),
+          max: json.forecast.forecastday.map(d => d.day.maxtemp_c)
         }
       };
     }
@@ -245,33 +362,39 @@
       const days = Number(daysSelect.value);
       const apiKey = apiKeyInput.value.trim();
 
-      if (!location) return setStatus('Bitte einen Ort eingeben.', 'error');
+      if (!location) {
+        setStatus('Bitte einen Ort eingeben.', 'error');
+        return;
+      }
 
       setStatus('Lade Wetterdaten…', 'info');
       loadBtn.disabled = true;
 
       try {
-        currentData = source === 'open-meteo'
-          ? await fetchFromOpenMeteo(location, days)
-          : await fetchFromWeatherApi(location, days, apiKey);
+        let data;
+        if (source === 'open-meteo') {
+          data = await fetchFromOpenMeteo(location, days);
+        } else {
+          data = await fetchFromWeatherApi(location, days, apiKey);
+        }
 
-        renderChart(currentData);
+        renderCharts(data);
+
         metaBox.innerHTML = `
-          <span><strong>Quelle:</strong> ${currentData.source}</span>
-          <span><strong>Ort:</strong> ${currentData.place}</span>
-          <span><strong>Zeitzone:</strong> ${currentData.timezone}</span>
-          <span><strong>Aktualisiert:</strong> ${currentData.updated}</span>
+          <span><strong>Quelle:</strong> ${data.source}</span>
+          <span><strong>Ort:</strong> ${data.place}</span>
+          <span><strong>Zeitzone:</strong> ${data.timezone}</span>
+          <span><strong>Aktualisiert:</strong> ${data.updated}</span>
         `;
         setStatus('Daten erfolgreich geladen.', 'ok');
       } catch (err) {
+        console.error(err);
         setStatus(err.message || 'Unbekannter Fehler beim Laden der Daten.', 'error');
       } finally {
         loadBtn.disabled = false;
       }
     }
 
-    zoomDayBtn.addEventListener('click', () => setZoom('day'));
-    zoomWeekBtn.addEventListener('click', () => setZoom('week'));
     loadBtn.addEventListener('click', loadWeather);
     window.addEventListener('DOMContentLoaded', loadWeather);
   </script>
