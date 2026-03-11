@@ -518,7 +518,8 @@
           return arr.reduce((sum, v) => sum + v, 0) / arr.length;
         }),
         rainSum: days.map((day) => map.get(day).rain.reduce((sum, v) => sum + (v || 0), 0)),
-        rainProbMax: days.map((day) => Math.max(...map.get(day).prob))
+        rainProbMax: days.map((day) => Math.max(...map.get(day).prob)),
+        dayKeys: days
       };
     }
 
@@ -561,6 +562,7 @@
       let labels;
       let datasets;
       let title;
+      let rawTimes;
 
       if (zoomMode === 'day') {
         const dayTemps = data.hourly.temps.slice(0, 24);
@@ -569,6 +571,7 @@
         const daySeries = buildDaySeries(dayTemps);
         labels = data.hourly.times.slice(0, 24).map(toHourLabel);
         title = 'Tages-Detail: Temperatur, Niederschlag und Regenrisiko';
+        rawTimes = data.hourly.times.slice(0, 24);
         datasets = [
           {
             label: 'Min (°C)',
@@ -638,6 +641,7 @@
         const weekSeries = buildWeekSeries(data.hourly.times, data.hourly.temps, data.hourly.precipitation, data.hourly.precipitationProbability);
         labels = weekSeries.labels;
         title = 'Woche: Temperatur, Regenmenge und Regenrisiko';
+        rawTimes = weekSeries.dayKeys.map((day) => `${day}T00:00`);
         datasets = [
           {
             label: 'Min (°C)',
