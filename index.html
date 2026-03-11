@@ -347,6 +347,92 @@
     let statusTimeout;
     const forecastDays = 7;
 
+    const nowMarkerPlugin = {
+      id: 'nowMarker',
+      beforeDatasetsDraw(chart) {
+        const rawTimes = chart?.config?.data?.rawTimes;
+        if (!Array.isArray(rawTimes) || rawTimes.length < 2) return;
+
+        const now = Date.now();
+        const points = rawTimes.map((t) => new Date(t).getTime());
+        if (!Number.isFinite(points[0])) return;
+
+        let markerIndex = -1;
+        for (let i = 0; i < points.length - 1; i++) {
+          if (now >= points[i] && now <= points[i + 1]) {
+            markerIndex = i;
+            break;
+          }
+        }
+
+        if (markerIndex < 0) return;
+
+        const xScale = chart.scales.x;
+        const yTemp = chart.scales.yTemp;
+        if (!xScale || !yTemp) return;
+
+        const leftX = xScale.getPixelForValue(markerIndex);
+        const rightX = xScale.getPixelForValue(markerIndex + 1);
+        const range = points[markerIndex + 1] - points[markerIndex];
+        const ratio = range > 0 ? (now - points[markerIndex]) / range : 0;
+        const markerX = leftX + (rightX - leftX) * Math.max(0, Math.min(1, ratio));
+        if (!Number.isFinite(markerX) || markerX <= xScale.left || markerX >= xScale.right) return;
+
+        const { ctx } = chart;
+        const top = yTemp.top;
+        const bottom = yTemp.bottom;
+        const left = xScale.left;
+
+        ctx.save();
+
+        const patternOffset = (Date.now() / 32) % 18;
+        const shadowGradient = ctx.createLinearGradient(left, 0, markerX, 0);
+        shadowGradient.addColorStop(0, 'rgba(2, 6, 23, 0.28)');
+        shadowGradient.addColorStop(1, 'rgba(2, 6, 23, 0.02)');
+
+        ctx.fillStyle = shadowGradient;
+        ctx.fillRect(left, top, Math.max(0, markerX - left), bottom - top);
+
+        ctx.globalAlpha = 0.2;
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([9, 9]);
+        for (let x = left - patternOffset; x < markerX; x += 18) {
+          ctx.beginPath();
+          ctx.moveTo(x, top);
+          ctx.lineTo(x + (bottom - top) * 0.25, bottom);
+          ctx.stroke();
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(markerX, top);
+        ctx.lineTo(markerX, bottom);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        const labelWidth = 54;
+        const labelX = Math.max(left + 6, Math.min(markerX - labelWidth / 2, xScale.right - labelWidth - 6));
+        const labelY = top + 6;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.beginPath();
+        ctx.roundRect(labelX, labelY, labelWidth, 22, 8);
+        ctx.fill();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '600 12px "SF Pro Text", "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Jetzt', labelX + labelWidth / 2, labelY + 11);
+
+        ctx.restore();
+      }
+    };
+
     function setStatus(message, type = 'info') {
       if (statusTimeout) {
         clearTimeout(statusTimeout);
@@ -388,7 +474,9 @@
     }
 
     function destroyChart() {
+      stopOverlayAnimation();
       if (weatherChart) weatherChart.destroy();
+      weatherChart = null;
     }
 
     function buildDaySeries(hourlyTemps) {
@@ -612,7 +700,8 @@
         type: 'line',
         data: {
           labels,
-          datasets
+          datasets,
+          rawTimes: zoomMode === 'day' ? data.hourly.times.slice(0, 24) : null
         },
         options: {
           responsive: true,
@@ -644,9 +733,33 @@
             yTemp: { position: 'left', min: yScale.min, max: yScale.max, ticks: { color: '#94a3b8' }, title: { display: true, text: '°C', color: '#64748b' } },
             yRain: { position: 'right', beginAtZero: true, ticks: { color: '#0284c7' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'mm', color: '#0284c7' } },
             yPercent: { position: 'right', min: 0, max: 100, ticks: { color: '#0369a1' }, grid: { drawOnChartArea: false }, title: { display: true, text: '%', color: '#0369a1' } }
+          },
+          animation: {
+            duration: 900
           }
-        }
+        },
+        plugins: [nowMarkerPlugin]
       });
+
+      if (zoomMode === 'day') {
+        const animateOverlay = () => {
+          if (!weatherChart || zoomMode !== 'day' || weatherChart.animating) return;
+          weatherChart.draw();
+          weatherChart.$nowMarkerFrame = requestAnimationFrame(animateOverlay);
+        };
+
+        if (weatherChart.$nowMarkerFrame) {
+          cancelAnimationFrame(weatherChart.$nowMarkerFrame);
+        }
+        weatherChart.$nowMarkerFrame = requestAnimationFrame(animateOverlay);
+      }
+    }
+
+    function stopOverlayAnimation() {
+      if (weatherChart?.$nowMarkerFrame) {
+        cancelAnimationFrame(weatherChart.$nowMarkerFrame);
+        weatherChart.$nowMarkerFrame = null;
+      }
     }
 
     async function geocodeWithOpenMeteo(query) {
