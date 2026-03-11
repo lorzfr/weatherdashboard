@@ -385,63 +385,40 @@
 
         ctx.save();
 
+        const patternOffset = (Date.now() / 32) % 18;
         const shadowGradient = ctx.createLinearGradient(left, 0, markerX, 0);
-        shadowGradient.addColorStop(0, 'rgba(2, 6, 23, 0.34)');
-        shadowGradient.addColorStop(0.65, 'rgba(15, 23, 42, 0.2)');
-        shadowGradient.addColorStop(1, 'rgba(15, 23, 42, 0.04)');
+        shadowGradient.addColorStop(0, 'rgba(2, 6, 23, 0.28)');
+        shadowGradient.addColorStop(1, 'rgba(2, 6, 23, 0.02)');
+
         ctx.fillStyle = shadowGradient;
         ctx.fillRect(left, top, Math.max(0, markerX - left), bottom - top);
 
-        const cloudPhase = Date.now() / 1200;
-        const cloudWidth = markerX - left;
-        if (cloudWidth > 8) {
-          ctx.save();
+        ctx.globalAlpha = 0.2;
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([9, 9]);
+        for (let x = left - patternOffset; x < markerX; x += 18) {
           ctx.beginPath();
-          ctx.rect(left, top, cloudWidth, bottom - top);
-          ctx.clip();
-
-          ctx.filter = 'blur(14px)';
-          for (let i = 0; i < 12; i++) {
-            const drift = (cloudPhase * (14 + i)) % (cloudWidth + 220);
-            const cloudX = markerX - drift;
-            const wave = Math.sin(cloudPhase * 1.2 + i * 1.7);
-            const cloudY = top + (bottom - top) * (0.16 + (i % 5) * 0.17 + wave * 0.02);
-            const radius = 42 + (i % 4) * 16;
-
-            const puff = ctx.createRadialGradient(cloudX, cloudY, 4, cloudX, cloudY, radius);
-            puff.addColorStop(0, 'rgba(226, 232, 240, 0.16)');
-            puff.addColorStop(0.55, 'rgba(148, 163, 184, 0.09)');
-            puff.addColorStop(1, 'rgba(15, 23, 42, 0)');
-
-            ctx.fillStyle = puff;
-            ctx.beginPath();
-            ctx.arc(cloudX, cloudY, radius, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.filter = 'none';
-          ctx.restore();
+          ctx.moveTo(x, top);
+          ctx.lineTo(x + (bottom - top) * 0.25, bottom);
+          ctx.stroke();
         }
 
-        ctx.setLineDash([]);
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = 'rgba(15, 23, 42, 0.65)';
-        ctx.beginPath();
-        ctx.moveTo(markerX, top);
-        ctx.lineTo(markerX, bottom);
-        ctx.stroke();
-
-        ctx.lineWidth = 2;
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([4, 4]);
         ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(markerX, top);
         ctx.lineTo(markerX, bottom);
         ctx.stroke();
 
+        ctx.setLineDash([]);
         const labelWidth = 54;
         const labelX = Math.max(left + 6, Math.min(markerX - labelWidth / 2, xScale.right - labelWidth - 6));
         const labelY = top + 6;
 
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
         ctx.beginPath();
         ctx.roundRect(labelX, labelY, labelWidth, 22, 8);
         ctx.fill();
@@ -728,7 +705,7 @@
         data: {
           labels,
           datasets,
-          rawTimes
+          rawTimes: zoomMode === 'day' ? data.hourly.times.slice(0, 24) : null
         },
         options: {
           responsive: true,
@@ -768,9 +745,9 @@
         plugins: [nowMarkerPlugin]
       });
 
-      if (Array.isArray(rawTimes) && rawTimes.length > 1) {
+      if (zoomMode === 'day') {
         const animateOverlay = () => {
-          if (!weatherChart || weatherChart.animating) return;
+          if (!weatherChart || zoomMode !== 'day' || weatherChart.animating) return;
           weatherChart.draw();
           weatherChart.$nowMarkerFrame = requestAnimationFrame(animateOverlay);
         };
