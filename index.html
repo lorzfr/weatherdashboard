@@ -318,6 +318,7 @@
       <ul>
         <li>Verwendet ausschließlich die Open-Meteo API (kein API-Key nötig).</li>
         <li>Unten rechts im Diagramm kannst du per Schalter zwischen Tag und Woche wechseln. Mit dem runden 📍-Button fragt die App deine Position ab.</li>
+        <li>Tastatur-Shortcuts: <strong>D</strong> = Tag, <strong>W</strong> = Woche, <strong>R</strong> = Aktualisieren.</li>
       </ul>
 
       <strong>Neu integriert:</strong>
@@ -345,7 +346,156 @@
     let lastData = null;
     let zoomMode = 'day';
     let statusTimeout;
+    let isLoading = false;
     const forecastDays = 7;
+    const STORAGE_KEYS = {
+      location: 'weatherdashboard:lastLocation',
+      zoom: 'weatherdashboard:lastZoomMode'
+    };
+
+    const nowMarkerPlugin = {
+      id: 'nowMarker',
+      beforeDatasetsDraw(chart) {
+        const rawTimes = chart?.config?.data?.rawTimes;
+        if (!Array.isArray(rawTimes) || rawTimes.length < 2) return;
+
+        const now = Date.now();
+        const points = rawTimes.map((t) => new Date(t).getTime());
+        if (!Number.isFinite(points[0])) return;
+
+        let markerIndex = -1;
+        for (let i = 0; i < points.length - 1; i++) {
+          if (now >= points[i] && now <= points[i + 1]) {
+            markerIndex = i;
+            break;
+          }
+        }
+
+        if (markerIndex < 0) return;
+
+        const xScale = chart.scales.x;
+        const yTemp = chart.scales.yTemp;
+        if (!xScale || !yTemp) return;
+
+        const leftX = xScale.getPixelForValue(markerIndex);
+        const rightX = xScale.getPixelForValue(markerIndex + 1);
+        const range = points[markerIndex + 1] - points[markerIndex];
+        const ratio = range > 0 ? (now - points[markerIndex]) / range : 0;
+        const markerX = leftX + (rightX - leftX) * Math.max(0, Math.min(1, ratio));
+        if (!Number.isFinite(markerX) || markerX <= xScale.left || markerX >= xScale.right) return;
+
+        const { ctx } = chart;
+        const top = yTemp.top;
+        const bottom = yTemp.bottom;
+        const left = xScale.left;
+
+        ctx.save();
+
+        const shadowGradient = ctx.createLinearGradient(left, 0, markerX, 0);
+        shadowGradient.addColorStop(0, 'rgba(2, 6, 23, 0.34)');
+        shadowGradient.addColorStop(0.65, 'rgba(15, 23, 42, 0.2)');
+        shadowGradient.addColorStop(1, 'rgba(15, 23, 42, 0.04)');
+        ctx.fillStyle = shadowGradient;
+        ctx.fillRect(left, top, Math.max(0, markerX - left), bottom - top);
+
+        const cloudPhase = Date.now() / 1200;
+        const cloudWidth = markerX - left;
+        if (cloudWidth > 8) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(left, top, cloudWidth, bottom - top);
+          ctx.clip();
+
+          ctx.filter = 'blur(14px)';
+          for (let i = 0; i < 12; i++) {
+            const drift = (cloudPhase * (14 + i)) % (cloudWidth + 220);
+            const cloudX = markerX - drift;
+            const wave = Math.sin(cloudPhase * 1.2 + i * 1.7);
+            const cloudY = top + (bottom - top) * (0.16 + (i % 5) * 0.17 + wave * 0.02);
+            const radius = 42 + (i % 4) * 16;
+
+            const puff = ctx.createRadialGradient(cloudX, cloudY, 4, cloudX, cloudY, radius);
+            puff.addColorStop(0, 'rgba(226, 232, 240, 0.16)');
+            puff.addColorStop(0.55, 'rgba(148, 163, 184, 0.09)');
+            puff.addColorStop(1, 'rgba(15, 23, 42, 0)');
+
+            ctx.fillStyle = puff;
+            ctx.beginPath();
+            ctx.arc(cloudX, cloudY, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.filter = 'none';
+          ctx.restore();
+        }
+
+        ctx.setLineDash([]);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.65)';
+        ctx.beginPath();
+        ctx.moveTo(markerX, top);
+        ctx.lineTo(markerX, bottom);
+        ctx.stroke();
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(markerX, top);
+        ctx.lineTo(markerX, bottom);
+        ctx.stroke();
+
+        const labelWidth = 54;
+        const labelX = Math.max(left + 6, Math.min(markerX - labelWidth / 2, xScale.right - labelWidth - 6));
+        const labelY = top + 6;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        ctx.beginPath();
+        ctx.roundRect(labelX, labelY, labelWidth, 22, 8);
+        ctx.fill();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '600 12px "SF Pro Text", "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Jetzt', labelX + labelWidth / 2, labelY + 11);
+
+        ctx.restore();
+      }
+    };
+
+    function persistPreferences() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.location, locationInput.value.trim());
+        localStorage.setItem(STORAGE_KEYS.zoom, zoomMode);
+      } catch (_) {}
+    }
+
+    function restorePreferences() {
+      try {
+        const storedLocation = localStorage.getItem(STORAGE_KEYS.location);
+        const storedZoom = localStorage.getItem(STORAGE_KEYS.zoom);
+
+        if (storedLocation) locationInput.value = storedLocation;
+        if (storedZoom === 'week' || storedZoom === 'day') zoomMode = storedZoom;
+
+        return Boolean(storedLocation);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function syncZoomButtons() {
+      dayBtn.classList.toggle('active', zoomMode === 'day');
+      weekBtn.classList.toggle('active', zoomMode === 'week');
+    }
+
+    function setLoadingState(loading) {
+      isLoading = loading;
+      loadBtn.disabled = loading;
+      refreshBtn.disabled = loading;
+      locateBtn.disabled = loading;
+      loadBtn.textContent = loading ? 'Lädt…' : 'Suchanfrage';
+      refreshBtn.textContent = loading ? 'Aktualisiere…' : 'Aktualisieren';
+    }
 
     function setStatus(message, type = 'info') {
       if (statusTimeout) {
@@ -388,7 +538,9 @@
     }
 
     function destroyChart() {
+      stopOverlayAnimation();
       if (weatherChart) weatherChart.destroy();
+      weatherChart = null;
     }
 
     function buildDaySeries(hourlyTemps) {
@@ -430,7 +582,8 @@
           return arr.reduce((sum, v) => sum + v, 0) / arr.length;
         }),
         rainSum: days.map((day) => map.get(day).rain.reduce((sum, v) => sum + (v || 0), 0)),
-        rainProbMax: days.map((day) => Math.max(...map.get(day).prob))
+        rainProbMax: days.map((day) => Math.max(...map.get(day).prob)),
+        dayKeys: days
       };
     }
 
@@ -473,6 +626,7 @@
       let labels;
       let datasets;
       let title;
+      let rawTimes;
 
       if (zoomMode === 'day') {
         const dayTemps = data.hourly.temps.slice(0, 24);
@@ -481,6 +635,7 @@
         const daySeries = buildDaySeries(dayTemps);
         labels = data.hourly.times.slice(0, 24).map(toHourLabel);
         title = 'Tages-Detail: Temperatur, Niederschlag und Regenrisiko';
+        rawTimes = data.hourly.times.slice(0, 24);
         datasets = [
           {
             label: 'Min (°C)',
@@ -550,6 +705,7 @@
         const weekSeries = buildWeekSeries(data.hourly.times, data.hourly.temps, data.hourly.precipitation, data.hourly.precipitationProbability);
         labels = weekSeries.labels;
         title = 'Woche: Temperatur, Regenmenge und Regenrisiko';
+        rawTimes = weekSeries.dayKeys.map((day) => `${day}T00:00`);
         datasets = [
           {
             label: 'Min (°C)',
@@ -612,7 +768,8 @@
         type: 'line',
         data: {
           labels,
-          datasets
+          datasets,
+          rawTimes
         },
         options: {
           responsive: true,
@@ -644,9 +801,33 @@
             yTemp: { position: 'left', min: yScale.min, max: yScale.max, ticks: { color: '#94a3b8' }, title: { display: true, text: '°C', color: '#64748b' } },
             yRain: { position: 'right', beginAtZero: true, ticks: { color: '#0284c7' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'mm', color: '#0284c7' } },
             yPercent: { position: 'right', min: 0, max: 100, ticks: { color: '#0369a1' }, grid: { drawOnChartArea: false }, title: { display: true, text: '%', color: '#0369a1' } }
+          },
+          animation: {
+            duration: 900
           }
-        }
+        },
+        plugins: [nowMarkerPlugin]
       });
+
+      if (Array.isArray(rawTimes) && rawTimes.length > 1) {
+        const animateOverlay = () => {
+          if (!weatherChart || weatherChart.animating) return;
+          weatherChart.draw();
+          weatherChart.$nowMarkerFrame = requestAnimationFrame(animateOverlay);
+        };
+
+        if (weatherChart.$nowMarkerFrame) {
+          cancelAnimationFrame(weatherChart.$nowMarkerFrame);
+        }
+        weatherChart.$nowMarkerFrame = requestAnimationFrame(animateOverlay);
+      }
+    }
+
+    function stopOverlayAnimation() {
+      if (weatherChart?.$nowMarkerFrame) {
+        cancelAnimationFrame(weatherChart.$nowMarkerFrame);
+        weatherChart.$nowMarkerFrame = null;
+      }
     }
 
     async function geocodeWithOpenMeteo(query) {
@@ -777,6 +958,14 @@
     }
 
     async function initializeWeather() {
+      const hasStoredLocation = restorePreferences();
+      syncZoomButtons();
+
+      if (hasStoredLocation && locationInput.value.trim()) {
+        await loadWeather();
+        return;
+      }
+
       try {
         setStatus('Ermittle ungefähren Standort über öffentliche IP…', 'info');
         const ipLocation = await resolveApproxLocationByIP();
@@ -823,6 +1012,8 @@
     }
 
     async function loadWeather(options = {}) {
+      if (isLoading) return;
+
       const location = locationInput.value.trim();
       const fixedCoords = options.fixedCoords || null;
 
@@ -832,7 +1023,7 @@
       }
 
       setStatus('Lade Wetterdaten…', 'info');
-      loadBtn.disabled = true;
+      setLoadingState(true);
 
       try {
         const data = await fetchFromOpenMeteo(location, forecastDays, fixedCoords);
@@ -847,6 +1038,7 @@
           <span><strong>Zeitzone:</strong> ${data.timezone}</span>
           <span><strong>Aktualisiert:</strong> ${data.updated}</span>
         `;
+        persistPreferences();
         setStatus('Daten erfolgreich geladen.', 'ok');
       } catch (err) {
         console.error(err);
@@ -855,30 +1047,48 @@
         summaryGrid.innerHTML = '';
         setStatus(err.message || 'Unbekannter Fehler beim Laden der Daten.', 'error');
       } finally {
-        loadBtn.disabled = false;
+        setLoadingState(false);
       }
     }
 
     dayBtn.addEventListener('click', () => {
       zoomMode = 'day';
-      dayBtn.classList.add('active');
-      weekBtn.classList.remove('active');
+      syncZoomButtons();
+      persistPreferences();
       if (lastData) renderChart(lastData);
     });
 
     weekBtn.addEventListener('click', () => {
       zoomMode = 'week';
-      weekBtn.classList.add('active');
-      dayBtn.classList.remove('active');
+      syncZoomButtons();
+      persistPreferences();
       if (lastData) renderChart(lastData);
     });
 
     loadBtn.addEventListener('click', () => loadWeather());
     refreshBtn.addEventListener('click', () => loadWeather());
     locateBtn.addEventListener('click', useCurrentLocation);
+    locationInput.addEventListener('blur', persistPreferences);
     locationInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') loadWeather();
     });
+
+    window.addEventListener('keydown', (event) => {
+      if (['INPUT', 'TEXTAREA'].includes(event.target?.tagName)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'd') dayBtn.click();
+      if (key === 'w') weekBtn.click();
+      if (key === 'r') refreshBtn.click();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopOverlayAnimation();
+      } else if (lastData) {
+        renderChart(lastData);
+      }
+    });
+
     window.addEventListener('DOMContentLoaded', initializeWeather);
   </script>
 </body>
