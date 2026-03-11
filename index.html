@@ -373,7 +373,7 @@
             <label for="location">Ort (Stadt / PLZ / Land)</label>
             <div class="search-input-wrap">
               <button id="locateBtn" type="button" class="location-circle-btn" title="Meinen Standort nutzen" aria-label="Meinen Standort nutzen">📍</button>
-              <input id="location" class="location-input" type="text" placeholder="z.B. Berlin" value="Berlin" />
+              <input id="location" class="location-input" type="text" placeholder="z.B. Berlin" />
               <button id="loadBtn" type="button" class="search-btn">Suchanfrage</button>
             </div>
           </div>
@@ -466,31 +466,23 @@
         const { ctx } = chart;
         const top = yTemp.top;
         const bottom = yTemp.bottom;
-        const left = xScale.left;
+        const label = `Jetzt ${new Date(now).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
 
         ctx.save();
 
-        const patternOffset = (Date.now() / 32) % 18;
-        const shadowGradient = ctx.createLinearGradient(left, 0, markerX, 0);
-        shadowGradient.addColorStop(0, 'rgba(2, 6, 23, 0.28)');
-        shadowGradient.addColorStop(1, 'rgba(2, 6, 23, 0.02)');
+        const nowColumnWidth = 10;
+        const columnLeft = Math.max(xScale.left, markerX - nowColumnWidth / 2);
+        const columnRight = Math.min(xScale.right, markerX + nowColumnWidth / 2);
 
-        ctx.fillStyle = shadowGradient;
-        ctx.fillRect(left, top, Math.max(0, markerX - left), bottom - top);
-
-        ctx.globalAlpha = 0.2;
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([9, 9]);
-        for (let x = left - patternOffset; x < markerX; x += 18) {
-          ctx.beginPath();
-          ctx.moveTo(x, top);
-          ctx.lineTo(x + (bottom - top) * 0.25, bottom);
-          ctx.stroke();
+        if (columnRight > columnLeft) {
+          const columnGradient = ctx.createLinearGradient(0, top, 0, bottom);
+          columnGradient.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
+          columnGradient.addColorStop(1, 'rgba(56, 189, 248, 0.08)');
+          ctx.fillStyle = columnGradient;
+          ctx.fillRect(columnLeft, top, columnRight - columnLeft, bottom - top);
         }
 
-        ctx.globalAlpha = 1;
-        ctx.setLineDash([4, 4]);
+        ctx.setLineDash([5, 4]);
         ctx.strokeStyle = '#f8fafc';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -499,20 +491,20 @@
         ctx.stroke();
 
         ctx.setLineDash([]);
-        const labelWidth = 54;
-        const labelX = Math.max(left + 6, Math.min(markerX - labelWidth / 2, xScale.right - labelWidth - 6));
+        ctx.font = '600 12px "SF Pro Text", "Segoe UI", sans-serif';
+        const labelWidth = Math.ceil(ctx.measureText(label).width) + 18;
+        const labelX = Math.max(xScale.left + 6, Math.min(markerX - labelWidth / 2, xScale.right - labelWidth - 6));
         const labelY = top + 6;
 
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
         ctx.beginPath();
         ctx.roundRect(labelX, labelY, labelWidth, 22, 8);
         ctx.fill();
 
         ctx.fillStyle = '#f8fafc';
-        ctx.font = '600 12px "SF Pro Text", "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Jetzt', labelX + labelWidth / 2, labelY + 11);
+        ctx.fillText(label, labelX + labelWidth / 2, labelY + 11);
 
         ctx.restore();
       }
@@ -550,7 +542,7 @@
 
     function toHourLabel(isoString) {
       const d = new Date(isoString);
-      return d.toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     }
 
     function toDayLabel(isoString) {
@@ -653,7 +645,7 @@
         const dayRainProbability = data.hourly.precipitationProbability.slice(0, 24);
         const daySeries = buildDaySeries(dayTemps);
         labels = data.hourly.times.slice(0, 24).map(toHourLabel);
-        title = 'Tages-Detail: Temperatur, Niederschlag und Regenrisiko';
+        title = 'Tagesansicht';
         datasets = [
           {
             label: 'Min (°C)',
@@ -803,7 +795,7 @@
               callbacks: {
                 title: (items) => {
                   if (!items?.[0]?.label) return '';
-                  return zoomMode === 'week' ? `Tag: ${items[0].label}` : `Zeit: ${items[0].label}`;
+                  return items[0].label;
                 },
                 label: (context) => {
                   if (context.dataset.yAxisID === 'yRain') return `${context.dataset.label}: ${context.parsed.y.toFixed(1)} mm`;
