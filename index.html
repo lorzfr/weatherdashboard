@@ -347,6 +347,211 @@
       padding: 0.9rem;
     }
 
+    .demo-actions {
+      margin-top: 0.85rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+
+    .demo-btn {
+      width: auto;
+      border-radius: 999px;
+      padding: 0.5rem 0.86rem;
+      font-size: 0.82rem;
+      background: rgba(255, 255, 255, 0.7);
+      color: #163055;
+      border: 1px solid rgba(255,255,255,0.94);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    /* --------------------------------------------------
+       iOS-style overlays: notifications, toasts, dialogs
+    -------------------------------------------------- */
+    .ui-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1100;
+    }
+
+    .notification-stack {
+      position: fixed;
+      left: 50%;
+      top: 0.8rem;
+      transform: translateX(-50%);
+      width: min(720px, calc(100% - 1rem));
+      display: grid;
+      gap: 0.5rem;
+      pointer-events: none;
+      z-index: 1200;
+    }
+
+    .notification-banner {
+      background: rgba(248, 250, 252, 0.8);
+      border: 1px solid rgba(255,255,255,0.9);
+      backdrop-filter: blur(18px) saturate(145%);
+      -webkit-backdrop-filter: blur(18px) saturate(145%);
+      border-radius: 1rem;
+      padding: 0.8rem 0.95rem;
+      font-weight: 600;
+      color: #163055;
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+      opacity: 0;
+      transform: translateY(-120%) scale(0.97);
+      transition: transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 280ms ease;
+    }
+
+    .notification-banner.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .toast-stack {
+      position: fixed;
+      left: 50%;
+      bottom: 1.1rem;
+      transform: translateX(-50%);
+      width: min(520px, calc(100% - 1rem));
+      display: grid;
+      justify-items: center;
+      gap: 0.55rem;
+      pointer-events: none;
+      z-index: 1200;
+    }
+
+    .toast {
+      max-width: 100%;
+      background: rgba(23, 33, 54, 0.87);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #f8fafc;
+      border-radius: 999px;
+      padding: 0.56rem 0.9rem;
+      font-size: 0.9rem;
+      box-shadow: 0 14px 30px rgba(2, 6, 23, 0.24);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      transform: translateY(24px) scale(0.96);
+      transition: transform 350ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 230ms ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.28);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 250ms ease;
+      z-index: 1300;
+    }
+
+    .backdrop.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .dialog-card {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: min(420px, calc(100% - 1.4rem));
+      transform: translate(-50%, -44%) scale(0.94);
+      opacity: 0;
+      pointer-events: none;
+      background: rgba(247, 249, 255, 0.84);
+      border-radius: 1.15rem;
+      border: 1px solid rgba(255,255,255,0.93);
+      backdrop-filter: blur(18px) saturate(145%);
+      -webkit-backdrop-filter: blur(18px) saturate(145%);
+      box-shadow: 0 24px 64px rgba(15, 23, 42, 0.23);
+      z-index: 1400;
+      overflow: hidden;
+      transition: transform 360ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 240ms ease;
+    }
+
+    .dialog-card.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .dialog-content { padding: 1.1rem 1rem 0.86rem; text-align: center; }
+    .dialog-title { font-size: 1.07rem; font-weight: 700; margin-bottom: 0.45rem; }
+    .dialog-message { margin: 0; color: #45556f; line-height: 1.45; }
+
+    .dialog-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid rgba(148, 163, 184, 0.28);
+    }
+
+    .dialog-actions button {
+      border-radius: 0;
+      background: transparent;
+      color: #0a84ff;
+      font-weight: 600;
+      border-right: 1px solid rgba(148, 163, 184, 0.24);
+      min-height: 2.7rem;
+    }
+
+    .dialog-actions button:last-child {
+      border-right: 0;
+      font-weight: 700;
+    }
+
+    .sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 1.2rem 1.2rem 0 0;
+      background: rgba(250, 252, 255, 0.92);
+      border: 1px solid rgba(255,255,255,0.95);
+      box-shadow: 0 -15px 40px rgba(15, 23, 42, 0.2);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      transform: translateY(108%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 360ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 280ms ease;
+      z-index: 1350;
+    }
+
+    .sheet.show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sheet-handle {
+      width: 56px;
+      height: 5px;
+      border-radius: 99px;
+      margin: 0.55rem auto 0.2rem;
+      background: rgba(100, 116, 139, 0.35);
+    }
+
+    .sheet-content {
+      padding: 0.5rem 1rem 1.1rem;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 640px) {
+      .search-input-wrap { gap: 0.3rem; }
+      .search-btn { min-width: 100px; }
+      .dialog-actions { grid-template-columns: 1fr; }
+      .dialog-actions button { border-right: 0; border-bottom: 1px solid rgba(148,163,184,.24); }
+      .dialog-actions button:last-child { border-bottom: 0; }
+    }
+
     @media (max-width: 820px) {
       .info-grid { grid-template-columns: 1fr; }
       .search-btn { min-width: 112px; }
@@ -375,6 +580,13 @@
         </div>
       </div>
       <div id="status" class="status"></div>
+
+      <div class="demo-actions" aria-label="UI Demo Aktionen">
+        <button type="button" class="demo-btn" id="notifyDemoBtn">Benachrichtigung</button>
+        <button type="button" class="demo-btn" id="toastDemoBtn">Toast</button>
+        <button type="button" class="demo-btn" id="popupDemoBtn">Popup</button>
+        <button type="button" class="demo-btn" id="confirmDemoBtn">Bestätigung</button>
+      </div>
       </div>
     </section>
 
@@ -408,6 +620,42 @@
     </section>
   </main>
 
+  <div class="ui-layer" aria-hidden="true">
+    <div id="notificationStack" class="notification-stack"></div>
+    <div id="toastStack" class="toast-stack"></div>
+    <div id="overlayBackdrop" class="backdrop"></div>
+
+    <div id="popupDialog" class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="popupTitle" aria-describedby="popupMessage">
+      <div class="dialog-content">
+        <div id="popupTitle" class="dialog-title">Hinweis</div>
+        <p id="popupMessage" class="dialog-message"></p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="popupCloseBtn">OK</button>
+      </div>
+    </div>
+
+    <div id="confirmDialog" class="dialog-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+      <div class="dialog-content">
+        <div id="confirmTitle" class="dialog-title">Bitte bestätigen</div>
+        <p id="confirmMessage" class="dialog-message"></p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="confirmCancelBtn">Abbrechen</button>
+        <button type="button" id="confirmOkBtn">Fortfahren</button>
+      </div>
+    </div>
+
+    <div id="summarySheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="summarySheetTitle">
+      <div class="sheet-handle"></div>
+      <div class="sheet-content">
+        <h3 id="summarySheetTitle">Schnellübersicht</h3>
+        <p id="summarySheetMessage">Wetterdaten werden geladen…</p>
+        <button type="button" class="search-btn" id="sheetCloseBtn">Schließen</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const locationInput = document.getElementById('location');
     const loadBtn = document.getElementById('loadBtn');
@@ -419,12 +667,111 @@
     const dayBtn = document.getElementById('dayBtn');
     const weekBtn = document.getElementById('weekBtn');
     const refreshBtn = document.getElementById('refreshBtn');
+    const notificationStack = document.getElementById('notificationStack');
+    const toastStack = document.getElementById('toastStack');
+    const overlayBackdrop = document.getElementById('overlayBackdrop');
+    const popupDialog = document.getElementById('popupDialog');
+    const popupTitle = document.getElementById('popupTitle');
+    const popupMessage = document.getElementById('popupMessage');
+    const popupCloseBtn = document.getElementById('popupCloseBtn');
+    const confirmDialog = document.getElementById('confirmDialog');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+    const confirmOkBtn = document.getElementById('confirmOkBtn');
+    const summarySheet = document.getElementById('summarySheet');
+    const summarySheetMessage = document.getElementById('summarySheetMessage');
+    const sheetCloseBtn = document.getElementById('sheetCloseBtn');
+    const notifyDemoBtn = document.getElementById('notifyDemoBtn');
+    const toastDemoBtn = document.getElementById('toastDemoBtn');
+    const popupDemoBtn = document.getElementById('popupDemoBtn');
+    const confirmDemoBtn = document.getElementById('confirmDemoBtn');
 
     let weatherChart;
     let lastData = null;
     let zoomMode = 'day';
     let statusTimeout;
     const forecastDays = 7;
+
+    // Reusable iOS-like UI primitives -------------------------------------
+    function showNotification(text, timeout = 3000) {
+      const banner = document.createElement('div');
+      banner.className = 'notification-banner';
+      banner.textContent = text;
+      notificationStack.appendChild(banner);
+
+      requestAnimationFrame(() => banner.classList.add('show'));
+      setTimeout(() => {
+        banner.classList.remove('show');
+        setTimeout(() => banner.remove(), 380);
+      }, timeout);
+    }
+
+    function showToast(message, timeout = 2400) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      toastStack.appendChild(toast);
+
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 320);
+      }, timeout);
+    }
+
+    function closePopup() {
+      popupDialog.classList.remove('show');
+      overlayBackdrop.classList.remove('show');
+    }
+
+    function showPopup(title, message) {
+      popupTitle.textContent = title;
+      popupMessage.textContent = message;
+      overlayBackdrop.classList.add('show');
+      popupDialog.classList.add('show');
+    }
+
+    function closeConfirm() {
+      confirmDialog.classList.remove('show');
+      overlayBackdrop.classList.remove('show');
+    }
+
+    function showConfirm(message, callback) {
+      confirmMessage.textContent = message;
+      overlayBackdrop.classList.add('show');
+      confirmDialog.classList.add('show');
+
+      const onCancel = () => {
+        closeConfirm();
+        cleanup();
+        if (callback) callback(false);
+      };
+
+      const onOk = () => {
+        closeConfirm();
+        cleanup();
+        if (callback) callback(true);
+      };
+
+      function cleanup() {
+        confirmCancelBtn.removeEventListener('click', onCancel);
+        confirmOkBtn.removeEventListener('click', onOk);
+      }
+
+      confirmCancelBtn.addEventListener('click', onCancel);
+      confirmOkBtn.addEventListener('click', onOk);
+    }
+
+    function openSummarySheet(text) {
+      summarySheetMessage.textContent = text;
+      overlayBackdrop.classList.add('show');
+      summarySheet.classList.add('show');
+    }
+
+    function closeSummarySheet() {
+      summarySheet.classList.remove('show');
+      overlayBackdrop.classList.remove('show');
+    }
 
     const nowMarkerPlugin = {
       id: 'nowMarker',
@@ -513,7 +860,12 @@
       statusBox.className = `status ${type}`;
       statusBox.textContent = message;
 
+      if (type === 'error') {
+        showNotification(message);
+      }
+
       if (type === 'ok') {
+        showToast(message);
         statusTimeout = setTimeout(() => {
           statusBox.className = 'status';
           statusBox.textContent = '';
@@ -1032,6 +1384,7 @@
           <span><strong>Aktualisiert:</strong> ${data.updated}</span>
         `;
         setStatus('Daten erfolgreich geladen.', 'ok');
+        openSummarySheet(`Die Wetterdaten für ${data.place} wurden erfolgreich aktualisiert. Wechsle zwischen Tages- und Wochenansicht für mehr Details.`);
       } catch (err) {
         console.error(err);
         destroyChart();
@@ -1058,8 +1411,32 @@
     });
 
     loadBtn.addEventListener('click', () => loadWeather());
-    refreshBtn.addEventListener('click', () => loadWeather());
+    refreshBtn.addEventListener('click', () => {
+      showConfirm('Möchtest du die Wetterdaten jetzt neu laden?', (confirmed) => {
+        if (confirmed) {
+          loadWeather();
+        } else {
+          showToast('Aktualisierung abgebrochen.');
+        }
+      });
+    });
     locateBtn.addEventListener('click', useCurrentLocation);
+    popupCloseBtn.addEventListener('click', closePopup);
+    overlayBackdrop.addEventListener('click', () => {
+      closePopup();
+      closeConfirm();
+      closeSummarySheet();
+    });
+    sheetCloseBtn.addEventListener('click', closeSummarySheet);
+
+    notifyDemoBtn.addEventListener('click', () => showNotification('Neue Wetterwarnung: In 45 Minuten ist mit Regen zu rechnen.'));
+    toastDemoBtn.addEventListener('click', () => showToast('Standort wurde in der Zwischenablage gespeichert.'));
+    popupDemoBtn.addEventListener('click', () => showPopup('Wetterhinweis', 'Heute werden am Nachmittag Windböen bis 45 km/h erwartet.'));
+    confirmDemoBtn.addEventListener('click', () => {
+      showConfirm('Möchtest du Benachrichtigungen für Wetterwarnungen aktivieren?', (isConfirmed) => {
+        showToast(isConfirmed ? 'Warnungen aktiviert.' : 'Warnungen deaktiviert.');
+      });
+    });
     locationInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') loadWeather();
     });
